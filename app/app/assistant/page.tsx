@@ -19,7 +19,7 @@ export default function AssistantPage() {
   const samplePrompts = [
     {
       title: 'Find cheapest dairy',
-      query: `Who has the cheapest paneer and malai in ${currentCity?.name || 'Delhi'}?`,
+      query: `Who has the cheapest paneer and malai in ${currentCity?.name || 'Jaipur'}?`,
     },
     {
       title: 'Cut menu food costs',
@@ -35,12 +35,12 @@ export default function AssistantPage() {
     },
     {
       title: 'Wholesale mandi tips',
-      query: `What are current wholesale mandi trends in ${currentCity?.name || 'Azadpur'}?`,
+      query: `What are current wholesale mandi trends in ${currentCity?.name || 'Jaipur'}?`,
     },
   ];
 
   return (
-    <div className="space-y-4 w-full max-w-[1600px] mx-auto pb-16">
+    <div className="space-y-4 w-full max-w-[1600px] mx-auto pb-10">
       {/* 1. HEADER (Styled exactly like Screenshot 3) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E4D7C0]/70 pb-3">
         <div>
@@ -52,7 +52,7 @@ export default function AssistantPage() {
             AI Kitchen <span className="font-fraunces italic font-normal text-[#315B42]">Advisor</span>
           </h1>
           <p className="text-xs text-[#66523B] mt-0.5 font-normal">
-            Real-time procurement insights tailored for {currentCity?.name || 'Mumbai'} kitchen margins.
+            Real-time procurement insights tailored for {currentCity?.name || 'Jaipur'} kitchen margins.
           </p>
         </div>
 

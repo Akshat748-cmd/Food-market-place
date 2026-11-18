@@ -55,13 +55,14 @@ export function AIChatEngine({
 
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatScrollContainerRef = useRef<HTMLDivElement>(null);
+  const isInitialMount = useRef(true);
 
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'm-1',
       sender: 'assistant',
-      text: `Namaste Chef! I am your AI Copilot for ${currentRestaurant?.name || 'Dawat-e-Khaas'} in ${currentCity?.name || 'Delhi NCR'}. How can I help you reduce food costs today?`,
+      text: `Namaste Chef! I am your AI Copilot for ${currentRestaurant?.name || 'The Urban Tandoor'} in ${currentCity?.name || 'Jaipur'}. How can I help you reduce food costs today?`,
       time: 'Just now',
       followUps: [
         'Where is the cheapest paneer?',
@@ -78,12 +79,25 @@ export function AIChatEngine({
     { label: 'Compare suppliers', prompt: 'Who is the highest rated dairy supplier?' },
   ];
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    requestAnimationFrame(() => {
+      const container = chatScrollContainerRef.current;
+      if (!container) return;
+      // Scroll strictly inside the message container - never scroll the whole window/page
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior,
+      });
+    });
   };
 
   useEffect(() => {
-    scrollToBottom();
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      scrollToBottom('auto');
+      return;
+    }
+    scrollToBottom('smooth');
   }, [messages, isTyping]);
 
   const handleSendMessage = (textToSend?: string) => {
@@ -110,8 +124,28 @@ export function AIChatEngine({
       let cardData: any = undefined;
       let followUps: string[] = ['Check today mandi prices', 'View my shopping list'];
 
-      if (lower.includes('paneer') || lower.includes('dairy') || lower.includes('doodh')) {
-        replyText = `Found Grade A+ Fresh Malai Paneer at ₹285/kg from Verka Mandi Dairy Wholesaler in ${currentCity?.name || 'Delhi NCR'}. It's ₹55/kg cheaper than retail!`;
+      // 1. Add to shopping list intent
+      if (
+        (lower.includes('add') || lower.includes('added')) &&
+        (lower.includes('shopping') || lower.includes('list') || lower.includes('slip'))
+      ) {
+        replyText = `✅ Added 60kg Fresh Malai Paneer (₹285/kg from Verka Mandi) to your kitchen Shopping List! Estimated total is ₹17,100, saving ₹3,300 compared to spot retail.`;
+        cardType = 'shopping_list';
+        cardData = {
+          itemsCount: 1,
+          totalEst: '₹17,100',
+          savingsEst: '₹3,300',
+        };
+        followUps = ['Open full Shopping List slip', 'Compare with other dairy vendors'];
+      }
+      // 2. Compare suppliers intent
+      else if (lower.includes('compare') || lower.includes('vendors') || lower.includes('highest rated')) {
+        replyText = `Mandi price benchmark for Fresh Malai Paneer in ${currentCity?.name || 'Jaipur'}:\n• Verka Mandi Dairy: ₹285/kg (★ 4.9, 6:00 AM delivery)\n• Mother Dairy B2B: ₹298/kg (★ 4.8, 7:30 AM delivery)\n• Local Milk Federation: ₹310/kg (★ 4.7, 9:00 AM delivery)\nVerka Mandi is currently the top-rated with the lowest landed cost.`;
+        followUps = ['Add 60kg Paneer to Shopping List', 'Check today mandi prices'];
+      }
+      // 3. Paneer / Dairy inquiry
+      else if (lower.includes('paneer') || lower.includes('dairy') || lower.includes('doodh')) {
+        replyText = `Found Grade A+ Fresh Malai Paneer at ₹285/kg from Verka Mandi Dairy Wholesaler in ${currentCity?.name || 'Jaipur'}. It's ₹55/kg cheaper than retail!`;
         cardType = 'supplier';
         cardData = {
           supplierId: 'sup-delhi-02',
@@ -155,7 +189,7 @@ export function AIChatEngine({
         };
         followUps = ['Open full Shopping List slip', 'Send PO to Ghazipur Poultry'];
       } else {
-        replyText = `Based on live ${currentCity?.name || 'Delhi NCR'} APMC data, you can save an estimated ₹62,500/month across poultry, paneer, and aged basmati rice. Would you like to review direct mandi suppliers?`;
+        replyText = `Based on live ${currentCity?.name || 'Jaipur'} APMC data, you can save an estimated ₹62,500/month across poultry, paneer, and aged basmati rice. Would you like to review direct mandi suppliers?`;
         followUps = ['Show cheapest suppliers', 'Calculate monthly savings'];
       }
 
@@ -198,7 +232,10 @@ export function AIChatEngine({
       </div>
 
       {/* Messages Scroll Area */}
-      <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-4 bg-[#FFFCF7]">
+      <div
+        ref={chatScrollContainerRef}
+        className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-4 bg-[#FFFCF7]"
+      >
         {messages.map((msg) => (
           <div
             key={msg.id}
@@ -233,6 +270,7 @@ export function AIChatEngine({
                     </div>
                     <div className="pt-2 flex gap-2">
                       <Button
+                        type="button"
                         variant="primary"
                         size="sm"
                         onClick={() => {
@@ -248,12 +286,13 @@ export function AIChatEngine({
                             isCompleted: false,
                             category: 'Dairy & Paneer',
                           });
-                          handleSendMessage('Add 60kg Paneer to Shopping List');
+                          handleSendMessage('Added 60kg Paneer to Shopping List');
                         }}
                       >
                         Add 60kg to Shopping List
                       </Button>
                       <Button
+                        type="button"
                         variant="outline"
                         size="sm"
                         onClick={() => {
@@ -285,6 +324,7 @@ export function AIChatEngine({
                     </div>
                     <div className="pt-1">
                       <Button
+                        type="button"
                         variant="secondary"
                         size="sm"
                         fullWidth
@@ -306,7 +346,7 @@ export function AIChatEngine({
                       <strong className="text-sm font-mono text-[#315B42]">{msg.cardData.totalEst}</strong>
                     </div>
                     <p className="text-[11px] text-[#315B42]">Save {msg.cardData.savingsEst} vs spot retail purchasing</p>
-                    <Button variant="primary" size="sm" fullWidth onClick={() => router.push('/app/shopping-list')}>
+                    <Button type="button" variant="primary" size="sm" fullWidth onClick={() => router.push('/app/shopping-list')}>
                       Open Full Order Slip &rarr;
                     </Button>
                   </div>
@@ -338,8 +378,6 @@ export function AIChatEngine({
             <span className="animate-pulse">Copilot is checking mandi benchmarks...</span>
           </div>
         )}
-
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Input Bar */}
