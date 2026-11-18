@@ -374,17 +374,6 @@ function MenuManagementContent() {
 
         {/* Header Actions */}
         <div className="flex items-center gap-2 self-start md:self-auto shrink-0 flex-wrap">
-          {/* AI Action: Analyse Ingredients with AI */}
-          <button
-            type="button"
-            onClick={() => router.push('/app/processing')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#F8C45C] bg-[#FFF8E7] hover:bg-[#FDECC2] text-[#8C5D08] text-xs font-bold transition-all shadow-xs"
-            title="Run AI ingredient extraction and price matching"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-[#F8C45C]" />
-            <span>Analyse with AI</span>
-          </button>
-
           {/* Upload Menu Button (Prominent, Separate) */}
           <button
             type="button"

@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   Store,
   Layers,
+  MapPin,
 } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useHydrated } from '@/lib/useHydration';
@@ -26,7 +27,7 @@ import { Button } from '@/components/ui/Button';
 import { BestPriceBadge } from '@/components/ui/BestPriceBadge';
 import { getIngredientIllustration } from '@/lib/ingredientVisuals';
 import { useScrollLock } from '@/hooks/useScrollLock';
-import { Supplier, SupplierPrice, Ingredient, IngredientCategory } from '@/types';
+import { Supplier, SupplierPrice, Ingredient, IngredientCategory, CityId } from '@/types';
 
 const SUPPLIER_CATEGORIES = [
   'All',
@@ -43,6 +44,9 @@ export default function SuppliersPage() {
   const isHydrated = useHydrated();
   const {
     getCurrentCity,
+    selectedCityId,
+    setCity,
+    cities,
     ingredients,
     dishes,
     suppliers,
@@ -289,19 +293,36 @@ export default function SuppliersPage() {
         </div>
       )}
 
-      {/* 1. HEADER (Heading & Subtitle) */}
+      {/* 1. HEADER (Heading & Subtitle + Mandi City Switcher) */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#E4D7C0]/70 pb-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold font-fraunces text-[#2C1E14] tracking-tight">
             Find the Best Suppliers
           </h1>
           <p className="text-xs text-[#66523B] mt-0.5 font-normal">
-            Discover better prices for your kitchen ingredients across {currentCity?.name || 'wholesale mandis'}.
+            Discover wholesale rates across {currentCity?.name || 'wholesale mandis'}. Sourcing from inter-city mandis available.
           </p>
         </div>
 
-        {/* Landed Cost Switch & Action */}
-        <div className="flex items-center gap-3">
+        {/* Mandi City Selector & Landed Cost Controls */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Mandi City Switcher for Inter-city procurement (e.g. Chandigarh restaurant ordering from Jaipur) */}
+          <div className="flex items-center gap-1.5 bg-white border border-[#E4D7C0] rounded-lg px-2.5 py-1 text-xs shadow-xs h-8">
+            <MapPin className="w-3.5 h-3.5 text-[#315B42] shrink-0" />
+            <span className="text-[11px] font-semibold text-[#8A7662]">Mandi:</span>
+            <select
+              value={isHydrated ? selectedCityId : 'delhi-ncr'}
+              onChange={(e) => setCity(e.target.value as CityId)}
+              className="bg-transparent font-bold text-[#2C1E14] focus:outline-none cursor-pointer pr-1 text-xs"
+            >
+              {cities.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} Mandi
+                </option>
+              ))}
+            </select>
+          </div>
+
           <label className="flex items-center gap-2 bg-white border border-[#E4D7C0] rounded-lg px-2.5 py-1 text-xs text-[#2C1E14] cursor-pointer shadow-xs select-none h-8">
             <input
               type="checkbox"
@@ -309,7 +330,7 @@ export default function SuppliersPage() {
               onChange={(e) => setIncludeDelivery(e.target.checked)}
               className="w-3.5 h-3.5 accent-[#263D2D]"
             />
-            <span className="font-semibold">Include Delivery in Landed Rate</span>
+            <span className="font-semibold text-xs">Include Delivery in Landed Rate</span>
           </label>
 
           <Button

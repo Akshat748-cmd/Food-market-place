@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { MapPin, Building2, Bell, ChevronDown, Check, LogOut, Settings, User } from 'lucide-react';
+import { MapPin, Building2, Bell, ChevronDown, Check, LogOut, Settings, User, Sparkles } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useHydrated } from '@/lib/useHydration';
 import { CityId } from '@/types';
@@ -65,25 +65,25 @@ export function TopBar() {
         )}
       </div>
 
-      {/* RIGHT: City Pill, Notification Bell, Small Avatar */}
+      {/* RIGHT: Analyse with AI Button, Notification Bell, Small Avatar */}
       <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-        {/* City Switcher Pill */}
-        <div className="relative flex items-center bg-white border border-[#E4D7C0] rounded-lg px-2.5 py-1 shadow-warm-xs h-8">
-          <MapPin className="w-3 h-3 text-[#315B42] shrink-0 mr-1" />
-          <select
-            aria-label="Select Mandi City"
-            value={isHydrated ? selectedCityId : 'delhi-ncr'}
-            onChange={(e) => setCity(e.target.value as CityId)}
-            className="bg-transparent text-xs font-bold text-[#2C1E14] focus:outline-none cursor-pointer pr-2 appearance-none"
-          >
-            {cities.map((city) => (
-              <option key={city.id} value={city.id}>
-                {city.name}
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="w-3 h-3 text-[#8A7662] pointer-events-none shrink-0 -ml-1" />
-        </div>
+        {/* Analyse with AI Button */}
+        <button
+          type="button"
+          onClick={() => {
+            if (pathname.startsWith('/app/menu')) {
+              router.push('/app/processing');
+            } else {
+              router.push('/app/assistant');
+            }
+          }}
+          className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-[#F8C45C] bg-[#FFF8E7] hover:bg-[#FDECC2] text-[#8C5D08] text-xs font-bold transition-all shadow-xs h-8"
+          title="Run AI Kitchen Copilot & Procurement Analysis"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-[#F8C45C]" />
+          <span className="hidden sm:inline">Analyse with AI</span>
+          <span className="sm:hidden">AI</span>
+        </button>
 
         {/* Notifications Bell */}
         <div className="relative">
