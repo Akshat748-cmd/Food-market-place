@@ -37,6 +37,22 @@ export interface OnboardingProfile {
   monthlyPortions: number;
 }
 
+export type MenuFilterKey =
+  | 'all'
+  | 'bestsellers'
+  | 'category'
+  | 'ingredient_count'
+  | 'food_cost'
+  | 'status';
+
+export interface MenuFilterState {
+  activeKey: MenuFilterKey;
+  categoryValue?: string;
+  ingredientCountValue?: '<=3' | '4-6' | '7+';
+  foodCostValue?: 'low' | 'target' | 'high';
+  statusValue?: 'active' | 'inactive';
+}
+
 interface AppState {
   // Current selections
   selectedCityId: CityId;
@@ -62,6 +78,24 @@ interface AppState {
   // UI state
   isAssistantOpen: boolean;
   isHydrated: boolean;
+
+  // Authentication & Restaurant Session
+  isAuthenticated: boolean;
+  currentUser: {
+    name: string;
+    email: string;
+    role: string;
+    phone: string;
+  } | null;
+  login: (restaurantId?: string, email?: string) => void;
+  logout: () => void;
+
+  // Menu Sidebar Filter Dropdown State
+  menuFilter: MenuFilterState;
+  isMenuExpanded: boolean;
+  setMenuFilter: (filter: Partial<MenuFilterState>) => void;
+  toggleMenuExpanded: () => void;
+  setMenuExpanded: (expanded: boolean) => void;
 
   // Actions
   setCity: (cityId: CityId) => void;
@@ -126,6 +160,67 @@ export const useAppStore = create<AppState>()(
       isProcessingComplete: true,
       isAssistantOpen: false,
       isHydrated: false,
+
+      // Authentication
+      isAuthenticated: true,
+      currentUser: {
+        name: 'Vikramaditya Sharma',
+        email: 'owner@delhihaveli.in',
+        role: 'Restaurant Owner & Executive Chef',
+        phone: '+91 98201 45892',
+      },
+
+      login: (restaurantId?: string, email?: string) => {
+        const targetRestId = restaurantId || 'rest-delhi-01';
+        const found = get().restaurants.find((r) => r.id === targetRestId) || get().restaurants[0];
+        const defaultName =
+          found.name === 'Golden Dragon Cafe'
+            ? 'Chef Chen Wei'
+            : found.name === 'Delhi Haveli'
+            ? 'Vikramaditya Sharma'
+            : 'Anita Deshmukh';
+
+        set({
+          isAuthenticated: true,
+          selectedRestaurantId: found.id,
+          selectedCityId: found.cityId,
+          selectedOutletId: found.activeOutletId || found.outlets[0]?.id || '',
+          currentUser: {
+            name: defaultName,
+            email: email || `owner@${found.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.in`,
+            role: 'Restaurant Owner & Executive Chef',
+            phone: '+91 98201 45892',
+          },
+        });
+      },
+
+      logout: () => {
+        set({
+          isAuthenticated: false,
+          currentUser: null,
+        });
+      },
+
+      // Menu Filter State
+      menuFilter: {
+        activeKey: 'all',
+        categoryValue: 'All',
+        ingredientCountValue: undefined,
+        foodCostValue: undefined,
+        statusValue: 'active',
+      },
+      isMenuExpanded: true,
+
+      setMenuFilter: (filter: Partial<MenuFilterState>) =>
+        set((state) => ({
+          menuFilter: { ...state.menuFilter, ...filter },
+        })),
+
+      toggleMenuExpanded: () =>
+        set((state) => ({ isMenuExpanded: !state.isMenuExpanded })),
+
+      setMenuExpanded: (expanded: boolean) =>
+        set({ isMenuExpanded: expanded }),
 
       setCity: (cityId: CityId) => set({ selectedCityId: cityId }),
       setOutlet: (outletId: string) => set({ selectedOutletId: outletId }),
@@ -344,6 +439,21 @@ export const useAppStore = create<AppState>()(
           onboardingProfile: null,
           isProcessingComplete: true,
           isAssistantOpen: false,
+          isAuthenticated: true,
+          menuFilter: {
+            activeKey: 'all',
+            categoryValue: 'All',
+            ingredientCountValue: undefined,
+            foodCostValue: undefined,
+            statusValue: 'active',
+          },
+          isMenuExpanded: true,
+          currentUser: {
+            name: 'Vikramaditya Sharma',
+            email: 'owner@delhihaveli.in',
+            role: 'Restaurant Owner & Executive Chef',
+            phone: '+91 98201 45892',
+          },
         }),
 
       setHydrated: (val: boolean) => set({ isHydrated: val }),

@@ -2,13 +2,30 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { MapPin, Building2, Bell, ChevronDown, Check } from 'lucide-react';
+import { useRouter, usePathname } from 'next/navigation';
+import { MapPin, Building2, Bell, ChevronDown, Check, LogOut, Settings, User } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useHydrated } from '@/lib/useHydration';
 import { CityId } from '@/types';
 import { HeroAvatarIllustration } from '@/components/illustrations';
 
+const PAGE_TITLES: Record<string, { title: string; subtitle?: string }> = {
+  '/app': { title: 'Kitchen Overview', subtitle: 'Live Mandi Ops' },
+  '/app/menu': { title: 'My Menu & Ingredients', subtitle: 'Recipes & Commodities' },
+  '/app/suppliers': { title: 'Find Suppliers', subtitle: 'Wholesale Mandis' },
+  '/app/city-prices': { title: 'City Mandi Prices', subtitle: 'APMC Benchmarks' },
+  '/app/savings': { title: 'Savings Overview', subtitle: 'Financial Statements' },
+  '/app/profitability': { title: 'Menu Profitability', subtitle: 'Food Cost & Margins' },
+  '/app/shopping-list': { title: 'Shopping List & Orders', subtitle: 'Wholesale PO Slip' },
+  '/app/assistant': { title: 'AI Kitchen Advisor', subtitle: 'Live Copilot' },
+  '/app/settings': { title: 'Kitchen & Account Settings', subtitle: 'Preferences & Outlets' },
+  '/app/onboarding': { title: 'Restaurant Onboarding', subtitle: 'Kitchen Setup' },
+  '/app/processing': { title: 'Menu Processing', subtitle: 'AI Extraction' },
+};
+
 export function TopBar() {
+  const router = useRouter();
+  const pathname = usePathname();
   const isHydrated = useHydrated();
   const {
     cities,
@@ -16,59 +33,36 @@ export function TopBar() {
     setCity,
     restaurants,
     selectedRestaurantId,
-    setRestaurant,
-    selectedOutletId,
-    setOutlet,
     alerts,
     markAlertRead,
+    currentUser,
+    isAuthenticated,
+    logout,
   } = useAppStore();
 
   const [alertsOpen, setAlertsOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const unreadAlerts = alerts.filter((a) => !a.read).length;
 
   const currentRestaurant =
     restaurants.find((r) => r.id === selectedRestaurantId) || restaurants[0];
-  const currentOutlet =
-    currentRestaurant?.outlets.find((o) => o.id === selectedOutletId) ||
-    currentRestaurant?.outlets[0];
 
-  // Combined restaurant + outlet change handler
-  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    if (val.includes(':::')) {
-      const [restId, outId] = val.split(':::');
-      setRestaurant(restId);
-      setOutlet(outId);
-    }
+  const currentPageInfo = PAGE_TITLES[pathname] || {
+    title: pathname.split('/').filter(Boolean).pop()?.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || 'Kitchen Portal',
   };
 
   return (
     <header className="sticky top-0 z-20 w-full h-12 bg-[#FFF9EF]/95 backdrop-blur-md border-b border-[#E4D7C0]/80 px-3 sm:px-5 lg:px-6 flex items-center justify-between">
-      {/* LEFT: ONE Combined Restaurant & Outlet Switcher Pill */}
-      <div className="relative flex items-center bg-white border border-[#E4D7C0] rounded-lg px-2.5 py-1 shadow-warm-xs max-w-[240px] sm:max-w-md h-8">
-        <Building2 className="w-3.5 h-3.5 text-[#66523B] shrink-0 mr-1.5" />
-        <div className="flex flex-col text-left min-w-0 flex-1 leading-none">
-          <span className="text-[9px] uppercase font-bold text-[#8A7662] tracking-wider leading-none truncate mb-0.5">
-            {isHydrated ? currentRestaurant?.name : 'Delhi Haveli'}
+      {/* LEFT: Current Page Heading (Clean, Compact Header Title) */}
+      <div className="flex items-center gap-2.5 min-w-0 py-1">
+        <h2 className="text-xs sm:text-sm font-bold font-fraunces text-[#2C1E14] tracking-tight truncate">
+          {currentPageInfo.title}
+        </h2>
+        {currentPageInfo.subtitle && (
+          <span className="hidden sm:inline-flex items-center text-[10px] text-[#8A7662] font-semibold bg-white px-2 py-0.5 rounded-md border border-[#E4D7C0] shadow-2xs shrink-0">
+            {currentPageInfo.subtitle}
           </span>
-          <select
-            aria-label="Select Restaurant and Outlet"
-            value={isHydrated ? `${selectedRestaurantId}:::${selectedOutletId}` : undefined}
-            onChange={handleSelectChange}
-            className="bg-transparent text-xs font-bold text-[#2C1E14] focus:outline-none cursor-pointer pr-2.5 appearance-none truncate"
-          >
-            {restaurants.map((rest) => (
-              <optgroup key={rest.id} label={`${rest.name} (${rest.cuisine})`}>
-                {rest.outlets.map((out) => (
-                  <option key={out.id} value={`${rest.id}:::${out.id}`}>
-                    {out.name}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-        </div>
-        <ChevronDown className="w-3 h-3 text-[#8A7662] pointer-events-none shrink-0 ml-0.5" />
+        )}
       </div>
 
       {/* RIGHT: City Pill, Notification Bell, Small Avatar */}
@@ -137,14 +131,73 @@ export function TopBar() {
           )}
         </div>
 
-        {/* Small Avatar Pill */}
-        <Link
-          href="/app/settings"
-          className="flex items-center gap-1.5 p-0.5 rounded-full border border-[#E4D7C0] bg-white hover:border-[#F8C45C] transition-all shadow-warm-xs"
-          title="Account Settings"
-        >
-          <HeroAvatarIllustration size={26} showOnlineDot={false} />
-        </Link>
+        {/* User Profile & Logout Popover */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setUserMenuOpen(!userMenuOpen)}
+            className="flex items-center gap-1.5 p-0.5 rounded-full border border-[#E4D7C0] bg-white hover:border-[#F8C45C] transition-all shadow-warm-xs"
+            title="Restaurant Account"
+          >
+            <HeroAvatarIllustration size={26} showOnlineDot={isHydrated && isAuthenticated} />
+          </button>
+
+          {userMenuOpen && (
+            <div className="absolute right-0 mt-2 w-64 bg-white border border-[#E4D7C0] rounded-2xl shadow-warm-xl p-3 z-50 text-left space-y-2">
+              <div className="flex items-center gap-2.5 pb-2 border-b border-[#F1E8D8]">
+                <HeroAvatarIllustration size={32} showOnlineDot={true} />
+                <div className="min-w-0 flex-1 leading-tight">
+                  <span className="font-bold text-xs text-[#2C1E14] block truncate">
+                    {currentUser?.name || 'Chef Owner'}
+                  </span>
+                  <span className="text-[10px] text-[#315B42] font-semibold block truncate">
+                    {currentRestaurant?.name || 'Delhi Haveli'}
+                  </span>
+                  <span className="text-[9px] text-[#8A7662] block truncate">
+                    {currentUser?.email || 'owner@restaurant.in'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-1 text-xs">
+                <Link
+                  href="/app/settings"
+                  onClick={() => setUserMenuOpen(false)}
+                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[#66523B] hover:text-[#2C1E14] hover:bg-[#F9F5EC] transition-colors"
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  <span>Restaurant Settings</span>
+                </Link>
+
+                <Link
+                  href="/login"
+                  onClick={() => setUserMenuOpen(false)}
+                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[#66523B] hover:text-[#2C1E14] hover:bg-[#F9F5EC] transition-colors"
+                >
+                  <User className="w-3.5 h-3.5" />
+                  <span>Switch Restaurant Profile</span>
+                </Link>
+              </div>
+
+              <div className="pt-1.5 border-t border-[#F1E8D8]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserMenuOpen(false);
+                    if (confirm('Log out from restaurant account?')) {
+                      logout();
+                      router.push('/login');
+                    }
+                  }}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[#C2410C] hover:bg-[#FEE2E2] font-semibold text-xs transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Log Out Restaurant</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

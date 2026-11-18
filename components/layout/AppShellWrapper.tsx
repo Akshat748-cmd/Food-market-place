@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { usePathname } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { MobileNav } from './MobileNav';
@@ -10,20 +10,33 @@ import { AIChatEngine } from '@/components/assistant/AIChatEngine';
 import { X, Sparkles } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useScrollLock } from '@/hooks/useScrollLock';
+import { useAppStore } from '@/store/useAppStore';
+import { useHydrated } from '@/lib/useHydration';
 
 export function AppShellWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const isHydrated = useHydrated();
+  const { isAuthenticated } = useAppStore();
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
 
   // Lock background scroll when assistant modal is open on mobile
   useScrollLock(isAssistantOpen);
 
-  // If user is on onboarding or landing, omit the app shell
+  // If user is on onboarding, landing, or login, omit the app shell
   const isPlainPage =
     pathname === '/' ||
     pathname.startsWith('/onboarding') ||
     pathname.startsWith('/blog') ||
-    pathname.startsWith('/styleguide');
+    pathname.startsWith('/styleguide') ||
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/app/login');
+
+  useEffect(() => {
+    if (isHydrated && !isAuthenticated && !isPlainPage) {
+      router.push('/login');
+    }
+  }, [isHydrated, isAuthenticated, isPlainPage, router]);
 
   if (isPlainPage) {
     return <>{children}</>;

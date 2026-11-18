@@ -11,7 +11,6 @@ import {
   Filter,
   Sparkles,
   X,
-  Edit2,
   Trash2,
   ArrowRight,
   Check,
@@ -62,6 +61,8 @@ function MenuManagementContent() {
     addDishIngredient,
     removeDishIngredient,
     getCurrentRestaurant,
+    menuFilter,
+    setMenuFilter,
   } = useAppStore();
 
   const currentRestaurant = isHydrated ? getCurrentRestaurant() : null;
@@ -112,17 +113,62 @@ function MenuManagementContent() {
     'https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=600&q=80'
   );
 
+  // Helper to compute dish food cost percentage from raw ingredients
+  const getDishFoodCostPercent = (dish: Dish) => {
+    let recipeCost = 0;
+    (dish.ingredients || []).forEach((di) => {
+      const ing = ingredients.find((i) => i.id === di.ingredientId);
+      const unitPrice = ing ? ing.bestCityPrice : 280;
+      recipeCost += di.quantityPerPortion * unitPrice;
+    });
+    if (recipeCost === 0) {
+      recipeCost = dish.price * 0.28;
+    }
+    return (recipeCost / Math.max(1, dish.price)) * 100;
+  };
+
   // Keep drawer in sync with updated store dish
   const activeDrawerDish = useMemo(() => {
     if (!selectedDishForDrawer) return null;
     return dishes.find((d) => d.id === selectedDishForDrawer.id) || selectedDishForDrawer;
   }, [dishes, selectedDishForDrawer]);
 
-  // Filtered and sorted dishes
+  // Filtered and sorted dishes (respects both sidebar expandable filters and page controls)
   const filteredDishes = useMemo(() => {
     return dishes
       .filter((dish) => {
-        // Category filter
+        // 1. Check Sidebar Menu Filters
+        if (menuFilter?.activeKey === 'bestsellers') {
+          if (!dish.tags?.includes('bestseller')) return false;
+        } else if (menuFilter?.activeKey === 'category') {
+          if (menuFilter.categoryValue && menuFilter.categoryValue !== 'All') {
+            const cat = (dish.category || '').toLowerCase();
+            const target = menuFilter.categoryValue.toLowerCase();
+            const match =
+              cat.includes(target) ||
+              (target.includes('starter') && cat.includes('starter')) ||
+              (target.includes('main') && cat.includes('main')) ||
+              (target.includes('rice') && (cat.includes('rice') || cat.includes('biryani') || cat.includes('pulao'))) ||
+              (target.includes('bread') && (cat.includes('bread') || cat.includes('roti') || cat.includes('naan'))) ||
+              (target.includes('dessert') && (cat.includes('dessert') || cat.includes('sweet'))) ||
+              (target.includes('beverage') && (cat.includes('beverage') || cat.includes('drink') || cat.includes('shake')));
+            if (!match) return false;
+          }
+        } else if (menuFilter?.activeKey === 'ingredient_count') {
+          const count = dish.ingredients?.length || 0;
+          if (menuFilter.ingredientCountValue === '<=3' && count > 3) return false;
+          if (menuFilter.ingredientCountValue === '4-6' && (count < 4 || count > 6)) return false;
+          if (menuFilter.ingredientCountValue === '7+' && count < 7) return false;
+        } else if (menuFilter?.activeKey === 'food_cost') {
+          const fc = getDishFoodCostPercent(dish);
+          if (menuFilter.foodCostValue === 'low' && fc >= 25) return false;
+          if (menuFilter.foodCostValue === 'target' && (fc < 25 || fc > 30)) return false;
+          if (menuFilter.foodCostValue === 'high' && fc <= 30) return false;
+        } else if (menuFilter?.activeKey === 'status') {
+          if (menuFilter.statusValue === 'inactive') return false;
+        }
+
+        // 2. In-page Category filter
         if (selectedCategory !== 'All') {
           const cat = dish.category.toLowerCase();
           const target = selectedCategory.toLowerCase();
@@ -138,7 +184,7 @@ function MenuManagementContent() {
           if (!match) return false;
         }
 
-        // Food classification filter (inside popover)
+        // 3. In-page Food classification filter (inside popover)
         const actualType = dish.foodType || (dish.isVeg ? 'veg' : 'nonveg');
         if (foodTypeFilter === 'veg' && actualType !== 'veg') return false;
         if (foodTypeFilter === 'egg' && actualType !== 'egg') return false;
@@ -148,7 +194,7 @@ function MenuManagementContent() {
           if (!hasJain) return false;
         }
 
-        // Search query
+        // 4. In-page Search query
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase();
           const matchName = dish.name.toLowerCase().includes(q);
@@ -165,7 +211,28 @@ function MenuManagementContent() {
         if (sortBy === 'portions_desc') return b.portionsSoldPerMonth - a.portionsSoldPerMonth;
         return a.name.localeCompare(b.name);
       });
-  }, [dishes, selectedCategory, foodTypeFilter, searchQuery, sortBy]);
+  }, [dishes, menuFilter, selectedCategory, foodTypeFilter, searchQuery, sortBy, ingredients]);
+
+  // Active filter label description
+  const activeSidebarFilterLabel = useMemo(() => {
+    if (!menuFilter || menuFilter.activeKey === 'all') return null;
+    if (menuFilter.activeKey === 'bestsellers') return 'Bestsellers';
+    if (menuFilter.activeKey === 'category') return `Category: ${menuFilter.categoryValue || 'All'}`;
+    if (menuFilter.activeKey === 'ingredient_count') {
+      if (menuFilter.ingredientCountValue === '<=3') return '1 to 3 Ingredients';
+      if (menuFilter.ingredientCountValue === '4-6') return '4 to 6 Ingredients';
+      return '7+ Ingredients';
+    }
+    if (menuFilter.activeKey === 'food_cost') {
+      if (menuFilter.foodCostValue === 'low') return 'Low Food Cost (< 25%)';
+      if (menuFilter.foodCostValue === 'target') return 'Target Food Cost (25% - 30%)';
+      return 'High Food Cost (> 30%)';
+    }
+    if (menuFilter.activeKey === 'status') {
+      return menuFilter.statusValue === 'inactive' ? 'Archived / Seasonal' : 'Active Dishes';
+    }
+    return null;
+  }, [menuFilter]);
 
   // Open Edit Dish Modal
   const handleOpenEditModal = (dish: Dish, e?: React.MouseEvent) => {
@@ -499,6 +566,27 @@ function MenuManagementContent() {
         </div>
       )}
 
+      {/* Active Sidebar Filter notification */}
+      {activeSidebarFilterLabel && activeTab === 'dishes' && (
+        <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-[#FFF8E7] border border-[#F8C45C]/70 shadow-warm-xs text-xs">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="w-2 h-2 rounded-full bg-[#C2410C]" />
+            <span className="font-medium text-[#66523B]">Sidebar Filter Applied:</span>
+            <span className="font-bold text-[#263D2D] bg-white px-2 py-0.5 rounded-md border border-[#E4D7C0] shadow-2xs">
+              {activeSidebarFilterLabel}
+            </span>
+            <span className="text-[#8A7662]">({filteredDishes.length} dishes matched)</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMenuFilter({ activeKey: 'all', categoryValue: 'All' })}
+            className="text-[11px] font-bold text-[#315B42] hover:text-[#1D432B] hover:underline shrink-0 ml-2"
+          >
+            Clear Filter &times;
+          </button>
+        </div>
+      )}
+
       {/* ========================================================================= */}
       {/* VIEW A: ALL DISHES (Responsive 2/3-Column Card Grid — Clean & Uncluttered) */}
       {/* ========================================================================= */}
@@ -519,102 +607,46 @@ function MenuManagementContent() {
               />
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
               {filteredDishes.map((dish) => {
-                const ft = dish.foodType || (dish.isVeg ? 'veg' : 'nonveg');
-
                 return (
                   <div
                     key={dish.id}
                     onClick={() => setSelectedDishForDrawer(dish)}
-                    className="bg-white border border-[#E4D7C0] rounded-xl hover:border-[#F8C45C] hover:shadow-warm-sm transition-all cursor-pointer group flex flex-col justify-between overflow-hidden"
+                    className="bg-white border border-[#E4D7C0] rounded-2xl p-4 hover:border-[#315B42]/50 hover:shadow-warm-xs transition-all cursor-pointer group flex flex-col justify-between"
                   >
-                    {/* Dish Image + Badge Overlay */}
-                    <div className="relative h-36 w-full bg-[#F1E8D8] overflow-hidden">
-                      <Image
-                        src={dish.image}
-                        alt={dish.name}
-                        fill
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80" />
-
-                      {/* Top Badges */}
-                      <div className="absolute top-2 left-2 flex items-center gap-1.5">
-                        {/* Food Classification Mark */}
-                        <span
-                          className={`w-4 h-4 rounded-sm flex items-center justify-center bg-white shadow-xs ${
-                            ft === 'veg'
-                              ? 'border-2 border-[#166534]'
-                              : ft === 'egg'
-                              ? 'border-2 border-[#B45309]'
-                              : 'border-2 border-[#991B1B]'
-                          }`}
-                        >
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              ft === 'veg'
-                                ? 'bg-[#166534]'
-                                : ft === 'egg'
-                                ? 'bg-[#B45309]'
-                                : 'bg-[#991B1B]'
-                            }`}
-                          />
-                        </span>
-
-                        {dish.tags?.includes('bestseller') && (
-                          <span className="text-[9px] font-bold uppercase tracking-wider text-white bg-[#1E3A8A]/90 px-1.5 py-0.5 rounded shadow-xs">
-                            Bestseller
-                          </span>
-                        )}
-                        {dish.tags?.includes('jain') && (
-                          <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-900 bg-emerald-100 px-1.5 py-0.5 rounded shadow-xs">
-                            Jain
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Selling Price overlay bottom right */}
-                      <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-lg bg-[#263D2D]/90 backdrop-blur-xs text-white font-mono font-bold text-sm shadow-xs">
-                        {formatCurrency(dish.price)}
-                      </div>
-                    </div>
-
-                    {/* Card Content */}
-                    <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2">
-                      <div>
-                        <div className="flex items-start justify-between gap-2">
-                          <h3 className="font-fraunces font-bold text-sm text-[#2C1E14] group-hover:text-[#315B42] transition-colors leading-snug">
+                    <div>
+                      {/* First row: Dish name and Bestseller badge on left, Price aligned to right */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                          <h3 className="font-bold text-sm sm:text-[15px] text-[#2C1E14] group-hover:text-[#315B42] transition-colors leading-snug">
                             {dish.name}
                           </h3>
+                          {dish.tags?.includes('bestseller') && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#0284C7] bg-[#E0F2FE] px-2 py-0.5 rounded-full shrink-0">
+                              Bestseller
+                            </span>
+                          )}
                         </div>
-                        <p className="text-[11px] text-[#66523B] line-clamp-2 mt-1 leading-relaxed">
-                          {dish.description || 'Delicious freshly prepared authentic recipe.'}
-                        </p>
+                        <span className="font-sans font-bold text-sm sm:text-base text-[#2C1E14] shrink-0">
+                          {formatCurrency(dish.price)}
+                        </span>
                       </div>
 
-                      {/* Card Meta Footer (Ingredients Count, Volume, Edit Action) */}
-                      <div className="pt-2 border-t border-[#F1E8D8] flex items-center justify-between text-[11px]">
-                        <div className="flex items-center gap-1.5">
-                          <span className="px-2 py-0.5 rounded bg-[#EAF3ED] text-[#315B42] font-semibold">
-                            {dish.ingredients.length} ingredients
-                          </span>
-                          <span className="text-[#8A7662]">
-                            {dish.portionsSoldPerMonth} sold/mo
-                          </span>
-                        </div>
+                      {/* Second row: Dish description */}
+                      <p className="text-xs text-[#66523B] mt-1.5 leading-relaxed line-clamp-2">
+                        {dish.description || 'Authentic kitchen recipe prepared fresh daily.'}
+                      </p>
+                    </div>
 
-                        {/* Quick Edit button */}
-                        <button
-                          type="button"
-                          onClick={(e) => handleOpenEditModal(dish, e)}
-                          className="w-6 h-6 rounded-md hover:bg-[#F1E8D8] text-[#8A7662] hover:text-[#2C1E14] flex items-center justify-center transition-colors"
-                          title="Edit Dish Info"
-                        >
-                          <Edit2 className="w-3 h-3" />
-                        </button>
-                      </div>
+                    {/* Divider & Bottom row: Ingredient count on extreme left, Monthly portions on extreme right */}
+                    <div className="mt-3 pt-3 border-t border-[#EFE5D3] flex items-center justify-between text-xs w-full">
+                      <span className="text-[#315B42] font-semibold">
+                        {dish.ingredients.length} Ingredients
+                      </span>
+                      <span className="text-[#66523B] font-medium">
+                        {dish.portionsSoldPerMonth} portions/mo
+                      </span>
                     </div>
                   </div>
                 );
@@ -735,17 +767,11 @@ function MenuManagementContent() {
               {/* Drawer Sticky Header */}
               <div className="p-3 px-3.5 border-b border-[#F1E8D8] bg-[#FFF9EF] flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-lg overflow-hidden relative shrink-0 border border-[#E4D7C0]">
-                    <Image
-                      src={activeDrawerDish.image}
-                      alt={activeDrawerDish.name}
-                      fill
-                      sizes="36px"
-                      className="object-cover"
-                    />
+                  <div className="w-8 h-8 rounded-lg bg-[#EAF3ED] border border-[#315B42]/20 flex items-center justify-center shrink-0 text-[#315B42]">
+                    <ChefHat className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="font-fraunces font-bold text-xs sm:text-sm text-[#2C1E14] truncate">
+                    <h3 className="font-bold text-xs sm:text-sm text-[#2C1E14] truncate">
                       {activeDrawerDish.name}
                     </h3>
                     <span className="text-[10px] text-[#8A7662]">

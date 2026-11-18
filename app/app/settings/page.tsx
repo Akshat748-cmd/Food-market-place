@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/store/useAppStore';
 import { CITIES } from '@/data/mockData';
 import { CityId } from '@/types';
@@ -15,11 +16,14 @@ import {
   Building,
   Mail,
   Phone,
-  X
+  X,
+  LogOut,
+  ShieldCheck,
 } from 'lucide-react';
 import { useScrollLock } from '@/hooks/useScrollLock';
 
 export default function SettingsPage() {
+  const router = useRouter();
   const {
     getCurrentRestaurant,
     getCurrentCity,
@@ -28,7 +32,9 @@ export default function SettingsPage() {
     language,
     setLanguage,
     resetDemoData,
-    addOutlet
+    addOutlet,
+    currentUser,
+    logout,
   } = useAppStore();
 
   const restaurant = getCurrentRestaurant();
@@ -366,7 +372,42 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* 5. Danger Zone / Reset Demo Data */}
+      {/* 5. Restaurant Account Session & Logout */}
+      <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#E4D7C0] shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h3 className="text-base font-bold text-[#2C1E14] font-outfit flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-[#315B42]" />
+            Restaurant Account Session
+          </h3>
+          <p className="text-xs text-[#66523B] mt-1">
+            Logged in as <strong>{currentUser?.name || 'Chef Owner'}</strong> ({restaurant.name} &bull; {currentCity.name})
+          </p>
+        </div>
+        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => router.push('/login')}
+            className="px-3.5 py-2 rounded-xl border border-[#E4D7C0] hover:bg-[#F9F5EC] text-xs font-semibold text-[#2C1E14] transition-colors"
+          >
+            Switch Profile
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm('Log out from restaurant account?')) {
+                logout();
+                router.push('/login');
+              }
+            }}
+            className="px-4 py-2 rounded-xl bg-[#FEE2E2] hover:bg-[#FCA5A5] text-[#991B1B] text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Log Out</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 6. Danger Zone / Reset Demo Data */}
       <div className="bg-rose-50/50 rounded-3xl p-6 sm:p-8 border border-rose-200/60 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h3 className="text-base font-bold text-rose-900 font-outfit flex items-center gap-2">

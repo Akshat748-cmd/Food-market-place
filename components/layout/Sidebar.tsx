@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   UtensilsCrossed,
@@ -14,6 +14,12 @@ import {
   Sparkles,
   Settings,
   Percent,
+  LogOut,
+  ChevronDown,
+  ChevronRight,
+  Flame,
+  Layers,
+  CheckCircle2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { HeroAvatarIllustration } from '@/components/illustrations';
@@ -39,11 +45,55 @@ export const NAV_ITEMS: NavItem[] = [
   { name: 'Settings', href: '/app/settings', icon: Settings },
 ];
 
+const MENU_CATEGORIES = [
+  'All',
+  'Starters & Appetizers',
+  'Main Course',
+  'Rice, Biryani & Pulao',
+  'Indian Breads',
+  'Desserts & Sweets',
+  'Beverages',
+];
+
+const INGREDIENT_COUNT_OPTIONS = [
+  { label: '1 to 3 Ingredients', value: '<=3' as const },
+  { label: '4 to 6 Ingredients', value: '4-6' as const },
+  { label: '7+ Ingredients', value: '7+' as const },
+];
+
+const FOOD_COST_OPTIONS = [
+  { label: 'Low Cost (< 25%)', value: 'low' as const },
+  { label: 'Target (25% - 30%)', value: 'target' as const },
+  { label: 'High Alert (> 30%)', value: 'high' as const },
+];
+
+const STATUS_OPTIONS = [
+  { label: 'Active Menu', value: 'active' as const, count: 25 },
+  { label: 'Archived / Seasonal', value: 'inactive' as const, count: 0 },
+];
+
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const isHydrated = useHydrated();
-  const { getCurrentRestaurant } = useAppStore();
+  const {
+    getCurrentRestaurant,
+    currentUser,
+    isAuthenticated,
+    logout,
+    dishes,
+    menuFilter,
+    setMenuFilter,
+    isMenuExpanded,
+    toggleMenuExpanded,
+  } = useAppStore();
+
+  const [expandedSubFilter, setExpandedSubFilter] = useState<
+    'category' | 'ingredient_count' | 'food_cost' | 'status' | null
+  >(null);
+
   const currentRestaurant = isHydrated ? getCurrentRestaurant() : null;
+  const bestsellersCount = dishes.filter((d) => d.tags?.includes('bestseller')).length;
 
   return (
     <aside className="hidden lg:flex fixed top-0 left-0 h-[100dvh] w-[216px] flex-col overflow-hidden bg-[#FFF9EF] border-r border-[#E4D7C0] select-none z-30 justify-between">
@@ -77,13 +127,343 @@ export function Sidebar() {
         </Link>
       </div>
 
-      {/* 2. Nav list: compact 34px items, 3px gap, 8px radius, icon 16px, label 13px */}
-      <nav className="flex-1 px-2.5 py-2.5 space-y-0.5 overflow-hidden">
+      {/* 2. Nav list: compact items, expandable Menu dropdown, overflow-y-auto */}
+      <nav className="flex-1 px-2.5 py-2.5 space-y-0.5 overflow-y-auto no-scrollbar">
         {NAV_ITEMS.map((item) => {
           const isActive = item.exact
             ? pathname === item.href
             : pathname.startsWith(item.href);
           const Icon = item.icon;
+
+          if (item.name === 'My Menu') {
+            const isMenuRoute = pathname.startsWith('/app/menu');
+            return (
+              <div key={item.name} className="space-y-0.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    toggleMenuExpanded();
+                  }}
+                  className={cn(
+                    'w-full flex items-center justify-between px-2.5 rounded-lg text-[13px] font-semibold transition-all duration-150 h-[34px] group text-left select-none',
+                    isMenuRoute
+                      ? 'bg-[#F8C45C] text-[#263D2D] shadow-warm-xs font-bold'
+                      : 'text-[#66523B] hover:bg-[#F1E8D8]/70 hover:text-[#2C1E14]'
+                  )}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <UtensilsCrossed
+                      className={cn(
+                        'w-4 h-4 shrink-0 transition-colors',
+                        isMenuRoute ? 'text-[#263D2D]' : 'text-[#66523B]'
+                      )}
+                    />
+                    <span className="truncate">My Menu</span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-white/80 text-[#2C1E14] font-bold border border-[#E4D7C0]/60">
+                      {dishes.length}
+                    </span>
+                    <ChevronDown
+                      className={cn(
+                        'w-3.5 h-3.5 transition-transform duration-200 text-[#2C1E14]/70',
+                        isMenuExpanded && 'rotate-180'
+                      )}
+                    />
+                  </div>
+                </button>
+
+                {/* EXPANDED DROPDOWN DIRECTLY BELOW MENU */}
+                {isMenuExpanded && (
+                  <div className="ml-2 pl-2 border-l-2 border-[#F8C45C]/60 py-1 space-y-1">
+                    {/* 1. All Dishes */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuFilter({ activeKey: 'all', categoryValue: 'All' });
+                        if (!isMenuRoute) router.push('/app/menu');
+                      }}
+                      className={cn(
+                        'w-full flex items-center justify-between px-2 py-1 rounded-md text-xs transition-colors',
+                        menuFilter.activeKey === 'all'
+                          ? 'bg-[#263D2D] text-white font-bold shadow-2xs'
+                          : 'text-[#66523B] hover:bg-[#F1E8D8] hover:text-[#2C1E14]'
+                      )}
+                    >
+                      <div className="flex items-center gap-1.5 truncate">
+                        <Layers className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">All Dishes</span>
+                      </div>
+                      <span className="text-[10px] opacity-80 font-mono">{dishes.length}</span>
+                    </button>
+
+                    {/* 2. Bestsellers */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuFilter({ activeKey: 'bestsellers' });
+                        if (!isMenuRoute) router.push('/app/menu');
+                      }}
+                      className={cn(
+                        'w-full flex items-center justify-between px-2 py-1 rounded-md text-xs transition-colors',
+                        menuFilter.activeKey === 'bestsellers'
+                          ? 'bg-[#263D2D] text-white font-bold shadow-2xs'
+                          : 'text-[#66523B] hover:bg-[#F1E8D8] hover:text-[#2C1E14]'
+                      )}
+                    >
+                      <div className="flex items-center gap-1.5 truncate">
+                        <Flame className="w-3.5 h-3.5 text-[#C2410C] shrink-0" />
+                        <span className="truncate">Bestsellers</span>
+                      </div>
+                      <span className="text-[10px] px-1 rounded bg-[#FEF3C7] text-[#92400E] font-bold">
+                        {bestsellersCount}
+                      </span>
+                    </button>
+
+                    {/* 3. Categories (Nested Accordion) */}
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedSubFilter(
+                            expandedSubFilter === 'category' ? null : 'category'
+                          )
+                        }
+                        className={cn(
+                          'w-full flex items-center justify-between px-2 py-1 rounded-md text-xs transition-colors',
+                          menuFilter.activeKey === 'category'
+                            ? 'bg-[#EAF3ED] text-[#315B42] font-bold'
+                            : 'text-[#66523B] hover:bg-[#F1E8D8] hover:text-[#2C1E14]'
+                        )}
+                      >
+                        <div className="flex items-center gap-1.5 truncate">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#315B42] shrink-0" />
+                          <span className="truncate">Categories</span>
+                        </div>
+                        <ChevronRight
+                          className={cn(
+                            'w-3 h-3 transition-transform duration-150',
+                            expandedSubFilter === 'category' && 'rotate-90'
+                          )}
+                        />
+                      </button>
+
+                      {expandedSubFilter === 'category' && (
+                        <div className="ml-3 pl-1.5 border-l border-[#E4D7C0] py-0.5 space-y-0.5">
+                          {MENU_CATEGORIES.map((cat) => {
+                            const isSelected =
+                              menuFilter.activeKey === 'category' &&
+                              menuFilter.categoryValue === cat;
+                            return (
+                              <button
+                                key={cat}
+                                type="button"
+                                onClick={() => {
+                                  setMenuFilter({ activeKey: 'category', categoryValue: cat });
+                                  if (!isMenuRoute) router.push('/app/menu');
+                                }}
+                                className={cn(
+                                  'w-full text-left px-2 py-0.5 rounded text-[11px] truncate transition-colors block',
+                                  isSelected
+                                    ? 'bg-[#263D2D] text-white font-bold'
+                                    : 'text-[#8A7662] hover:text-[#2C1E14] hover:bg-[#F9F5EC]'
+                                )}
+                              >
+                                {cat}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 4. Ingredient Count (Nested Accordion) */}
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedSubFilter(
+                            expandedSubFilter === 'ingredient_count'
+                              ? null
+                              : 'ingredient_count'
+                          )
+                        }
+                        className={cn(
+                          'w-full flex items-center justify-between px-2 py-1 rounded-md text-xs transition-colors',
+                          menuFilter.activeKey === 'ingredient_count'
+                            ? 'bg-[#EAF3ED] text-[#315B42] font-bold'
+                            : 'text-[#66523B] hover:bg-[#F1E8D8] hover:text-[#2C1E14]'
+                        )}
+                      >
+                        <div className="flex items-center gap-1.5 truncate">
+                          <Carrot className="w-3.5 h-3.5 text-[#8A7662] shrink-0" />
+                          <span className="truncate">Ingredient Count</span>
+                        </div>
+                        <ChevronRight
+                          className={cn(
+                            'w-3 h-3 transition-transform duration-150',
+                            expandedSubFilter === 'ingredient_count' && 'rotate-90'
+                          )}
+                        />
+                      </button>
+
+                      {expandedSubFilter === 'ingredient_count' && (
+                        <div className="ml-3 pl-1.5 border-l border-[#E4D7C0] py-0.5 space-y-0.5">
+                          {INGREDIENT_COUNT_OPTIONS.map((opt) => {
+                            const isSelected =
+                              menuFilter.activeKey === 'ingredient_count' &&
+                              menuFilter.ingredientCountValue === opt.value;
+                            return (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                onClick={() => {
+                                  setMenuFilter({
+                                    activeKey: 'ingredient_count',
+                                    ingredientCountValue: opt.value,
+                                  });
+                                  if (!isMenuRoute) router.push('/app/menu');
+                                }}
+                                className={cn(
+                                  'w-full text-left px-2 py-0.5 rounded text-[11px] truncate transition-colors block',
+                                  isSelected
+                                    ? 'bg-[#263D2D] text-white font-bold'
+                                    : 'text-[#8A7662] hover:text-[#2C1E14] hover:bg-[#F9F5EC]'
+                                )}
+                              >
+                                {opt.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 5. Food Cost % (Nested Accordion) */}
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedSubFilter(
+                            expandedSubFilter === 'food_cost' ? null : 'food_cost'
+                          )
+                        }
+                        className={cn(
+                          'w-full flex items-center justify-between px-2 py-1 rounded-md text-xs transition-colors',
+                          menuFilter.activeKey === 'food_cost'
+                            ? 'bg-[#EAF3ED] text-[#315B42] font-bold'
+                            : 'text-[#66523B] hover:bg-[#F1E8D8] hover:text-[#2C1E14]'
+                        )}
+                      >
+                        <div className="flex items-center gap-1.5 truncate">
+                          <Percent className="w-3.5 h-3.5 text-[#8A7662] shrink-0" />
+                          <span className="truncate">Food Cost</span>
+                        </div>
+                        <ChevronRight
+                          className={cn(
+                            'w-3 h-3 transition-transform duration-150',
+                            expandedSubFilter === 'food_cost' && 'rotate-90'
+                          )}
+                        />
+                      </button>
+
+                      {expandedSubFilter === 'food_cost' && (
+                        <div className="ml-3 pl-1.5 border-l border-[#E4D7C0] py-0.5 space-y-0.5">
+                          {FOOD_COST_OPTIONS.map((opt) => {
+                            const isSelected =
+                              menuFilter.activeKey === 'food_cost' &&
+                              menuFilter.foodCostValue === opt.value;
+                            return (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                onClick={() => {
+                                  setMenuFilter({
+                                    activeKey: 'food_cost',
+                                    foodCostValue: opt.value,
+                                  });
+                                  if (!isMenuRoute) router.push('/app/menu');
+                                }}
+                                className={cn(
+                                  'w-full text-left px-2 py-0.5 rounded text-[11px] truncate transition-colors block',
+                                  isSelected
+                                    ? 'bg-[#263D2D] text-white font-bold'
+                                    : 'text-[#8A7662] hover:text-[#2C1E14] hover:bg-[#F9F5EC]'
+                                )}
+                              >
+                                {opt.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 6. Active / Inactive (Nested Accordion) */}
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedSubFilter(
+                            expandedSubFilter === 'status' ? null : 'status'
+                          )
+                        }
+                        className={cn(
+                          'w-full flex items-center justify-between px-2 py-1 rounded-md text-xs transition-colors',
+                          menuFilter.activeKey === 'status'
+                            ? 'bg-[#EAF3ED] text-[#315B42] font-bold'
+                            : 'text-[#66523B] hover:bg-[#F1E8D8] hover:text-[#2C1E14]'
+                        )}
+                      >
+                        <div className="flex items-center gap-1.5 truncate">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[#8A7662] shrink-0" />
+                          <span className="truncate">Active / Inactive</span>
+                        </div>
+                        <ChevronRight
+                          className={cn(
+                            'w-3 h-3 transition-transform duration-150',
+                            expandedSubFilter === 'status' && 'rotate-90'
+                          )}
+                        />
+                      </button>
+
+                      {expandedSubFilter === 'status' && (
+                        <div className="ml-3 pl-1.5 border-l border-[#E4D7C0] py-0.5 space-y-0.5">
+                          {STATUS_OPTIONS.map((opt) => {
+                            const isSelected =
+                              menuFilter.activeKey === 'status' &&
+                              menuFilter.statusValue === opt.value;
+                            return (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                onClick={() => {
+                                  setMenuFilter({
+                                    activeKey: 'status',
+                                    statusValue: opt.value,
+                                  });
+                                  if (!isMenuRoute) router.push('/app/menu');
+                                }}
+                                className={cn(
+                                  'w-full text-left px-2 py-0.5 rounded text-[11px] truncate transition-colors block',
+                                  isSelected
+                                    ? 'bg-[#263D2D] text-white font-bold'
+                                    : 'text-[#8A7662] hover:text-[#2C1E14] hover:bg-[#F9F5EC]'
+                                )}
+                              >
+                                {opt.label} ({opt.count})
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          }
 
           return (
             <Link
@@ -113,24 +493,41 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* 3. Pinned Profile / Restaurant Card (Compact, mt-auto) */}
+      {/* 3. Pinned Profile / Restaurant Card (Compact, mt-auto with Quick Logout) */}
       <div className="mt-auto px-2.5 pb-3 pt-2 border-t border-[#E4D7C0]/80 shrink-0">
-        <Link
-          href="/app/settings"
-          className="flex items-center gap-2 p-2 rounded-lg bg-white border border-[#E4D7C0] hover:border-[#F8C45C] hover:bg-[#FFFDF9] transition-all shadow-warm-xs group"
-        >
-          <div className="shrink-0">
-            <HeroAvatarIllustration size={28} showOnlineDot={true} />
-          </div>
-          <div className="flex flex-col min-w-0 flex-1 leading-tight">
-            <span className="text-[11px] font-bold text-[#2C1E14] truncate group-hover:text-[#315B42]">
-              {currentRestaurant?.name || 'Delhi Haveli'}
-            </span>
-            <span className="text-[10px] text-[#8A7662] truncate">
-              {currentRestaurant?.cuisine || 'North Indian'} • Active
-            </span>
-          </div>
-        </Link>
+        <div className="flex items-center justify-between gap-1.5 p-1.5 rounded-lg bg-white border border-[#E4D7C0] hover:border-[#F8C45C] transition-all shadow-warm-xs group">
+          <Link
+            href="/app/settings"
+            className="flex items-center gap-2 min-w-0 flex-1 hover:opacity-90"
+            title="Restaurant Settings"
+          >
+            <div className="shrink-0">
+              <HeroAvatarIllustration size={28} showOnlineDot={isHydrated && isAuthenticated} />
+            </div>
+            <div className="flex flex-col min-w-0 flex-1 leading-tight">
+              <span className="text-[11px] font-bold text-[#2C1E14] truncate group-hover:text-[#315B42]">
+                {currentRestaurant?.name || 'Delhi Haveli'}
+              </span>
+              <span className="text-[9px] text-[#8A7662] truncate">
+                {currentUser?.name || currentRestaurant?.cuisine || 'Restaurant Owner'}
+              </span>
+            </div>
+          </Link>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm('Log out from restaurant account?')) {
+                logout();
+                router.push('/login');
+              }
+            }}
+            title="Log Out Restaurant"
+            className="w-7 h-7 rounded-md hover:bg-[#FEE2E2] text-[#8A7662] hover:text-[#C2410C] flex items-center justify-center transition-colors shrink-0"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
     </aside>
   );
