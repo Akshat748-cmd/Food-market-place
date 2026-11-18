@@ -89,13 +89,13 @@ export function Hero() {
         {/* Right: Login & CTA Button */}
         <div className="hidden md:flex items-center gap-6">
           <Link
-            href="/app"
+            href="/login"
             className="text-[15px] font-medium text-[#2C1E14] hover:text-[#66523B] transition-colors"
           >
             Login
           </Link>
           <Link
-            href="/app/onboarding"
+            href="/register"
             className="inline-flex items-center justify-center px-6 py-2.5 rounded-lg bg-[#F8C45C] hover:bg-[#F5B93E] text-[#2C1E14] font-semibold text-[15px] transition-all duration-150 shadow-warm-xs hover:shadow-warm active:scale-95"
           >
             Start Free Trial
@@ -148,14 +148,14 @@ export function Hero() {
           </nav>
           <div className="pt-4 border-t border-[#E4D7C0] flex flex-col gap-3">
             <Link
-              href="/app"
+              href="/login"
               onClick={() => setMobileMenuOpen(false)}
               className="w-full text-center py-2.5 font-semibold text-[#2C1E14] rounded-lg border border-[#E4D7C0] bg-white"
             >
               Login
             </Link>
             <Link
-              href="/app/onboarding"
+              href="/register"
               onClick={() => setMobileMenuOpen(false)}
               className="w-full text-center py-3 font-bold text-[#2C1E14] rounded-xl bg-[#F8C45C] shadow-warm-sm"
             >
@@ -180,7 +180,7 @@ export function Hero() {
         {/* Two Golden CTA Buttons */}
         <div className="mt-7 sm:mt-8 flex flex-col sm:flex-row items-center justify-center gap-3.5 sm:gap-4 w-full sm:w-auto">
           <Link
-            href="/app/onboarding"
+            href="/register"
             className="w-full sm:w-auto min-w-[170px] px-8 py-3.5 rounded-xl bg-[#F8C45C] hover:bg-[#F5B93E] text-[#2C1E14] font-bold text-base transition-all duration-150 shadow-warm-sm hover:shadow-warm active:scale-95 text-center"
           >
             For Restaurants

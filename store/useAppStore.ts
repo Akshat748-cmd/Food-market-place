@@ -238,23 +238,55 @@ export const useAppStore = create<AppState>()(
       },
 
       setOnboardingProfile: (profile: OnboardingProfile) => {
-        let restId = 'rest-delhi-01';
-        if (profile.restaurantType === 'cafe') restId = 'rest-mumbai-03';
-        if (profile.cuisines.some((c) => c.toLowerCase().includes('south'))) restId = 'rest-bengaluru-02';
+        const newRestId = `rest-${Date.now()}`;
+        const newOutletId = `out-${Date.now()}-01`;
 
-        const matched = get().restaurants.find((r) => r.id === restId) || get().restaurants[0];
-        const updatedRest: Restaurant = {
-          ...matched,
-          name: profile.restaurantName || matched.name,
+        const newRestaurant: Restaurant = {
+          id: newRestId,
+          name: profile.restaurantName || 'New Restaurant Partner',
+          cuisine: profile.cuisines?.join(', ') || 'Multi-Cuisine',
           cityId: profile.cityId,
+          activeOutletId: newOutletId,
+          monthlyRevenue: (profile.monthlyPortions || 4000) * 320,
+          currentFoodCostPercentage: 32.5,
+          targetFoodCostPercentage: 28.0,
+          coverImage:
+            'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80',
+          currency: 'INR',
+          outlets: [
+            {
+              id: newOutletId,
+              restaurantId: newRestId,
+              name: `${profile.restaurantName || 'Flagship'} Outlet 1`,
+              address: `City Center, ${(profile.cityId || 'delhi-ncr').replace('-', ' ').toUpperCase()}`,
+              cityId: profile.cityId,
+              phone: profile.phone || '+91 98000 00000',
+              managerName: profile.ownerName || 'Head Chef',
+            },
+          ],
         };
 
-        set({
+        // Link dishes to this newly created restaurant
+        const starterDishes = get().dishes.map((d) => ({
+          ...d,
+          restaurantId: newRestId,
+        }));
+
+        set((state) => ({
           onboardingProfile: profile,
-          selectedRestaurantId: restId,
+          selectedRestaurantId: newRestId,
+          selectedOutletId: newOutletId,
           selectedCityId: profile.cityId,
-          restaurants: get().restaurants.map((r) => (r.id === restId ? updatedRest : r)),
-        });
+          restaurants: [newRestaurant, ...state.restaurants],
+          dishes: starterDishes,
+          isAuthenticated: true,
+          currentUser: {
+            name: profile.ownerName || 'Restaurant Owner',
+            email: profile.email || 'owner@restaurant.in',
+            role: 'Owner & Executive Chef',
+            phone: profile.phone || '',
+          },
+        }));
       },
 
       setProcessingComplete: (val: boolean) => set({ isProcessingComplete: val }),

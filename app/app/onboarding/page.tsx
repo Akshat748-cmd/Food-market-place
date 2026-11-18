@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Utensils,
@@ -18,12 +19,14 @@ import {
   Mail,
   User,
   MapPin,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAppStore, OnboardingProfile } from '@/store/useAppStore';
 import { useHydrated } from '@/lib/useHydration';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Mascot } from '@/components/ui/Mascot';
+import { MascotFace } from '@/components/illustrations/MascotFace';
 import { Stepper } from '@/components/ui/Stepper';
 import { CityId } from '@/types';
 import {
@@ -82,15 +85,15 @@ export default function OnboardingPage() {
   ];
 
   const handlePreFillSample = () => {
-    setRestaurantName('Dawat-e-Khaas');
-    setOwnerName('Vikram Malhotra');
-    setPhone('+91 98101 22334');
-    setEmail('vikram@dawatekhaas.com');
+    setRestaurantName('The Urban Tandoor');
+    setOwnerName('Aditya Roy');
+    setPhone('+91 98201 55667');
+    setEmail('aditya@urbantandoor.in');
     setRestaurantType('dine_in');
-    setCityId('delhi-ncr');
+    setCityId('mumbai');
     setCuisines(['North Indian', 'Biryani']);
-    setOutletsCount(2);
-    setMonthlyPortions(6200);
+    setOutletsCount(1);
+    setMonthlyPortions(5200);
     setErrors({});
   };
 
@@ -143,24 +146,58 @@ export default function OnboardingPage() {
   );
 
   return (
-    <div className="w-full max-w-3xl mx-auto py-4 sm:py-8 px-2 sm:px-4">
-      {/* Top Banner with Mascot reaction */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 pb-4 border-b border-[#E4D7C0]/80">
-        <Mascot
-          role="assistant"
-          expression={mascotReaction[step].expression}
-          size={52}
-          message={mascotReaction[step].message}
-        />
-        <button
-          type="button"
-          onClick={handlePreFillSample}
-          className="px-3.5 py-1.5 rounded-xl border border-[#F8C45C] bg-[#FEF6E4] hover:bg-[#FDE9BE] text-[#8C5D08] text-xs font-bold transition-all shadow-warm-xs flex items-center gap-1.5"
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Use Sample Restaurant (Delhi Dawat)</span>
-        </button>
-      </div>
+    <div className="min-h-screen bg-[#FFF9EF] py-4 sm:py-8 px-3 sm:px-6">
+      <div className="w-full max-w-4xl mx-auto">
+        {/* Top Standalone Header */}
+        <div className="flex items-center justify-between pb-6 border-b border-[#E4D7C0]/80 mb-6">
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <div className="w-9 h-9 rounded-xl bg-white border border-[#E4D7C0] flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+              <MascotFace emotion="happy" size={26} />
+            </div>
+            <div>
+              <span className="font-fraunces font-bold text-sm sm:text-base text-[#2C1E14] tracking-tight block">
+                FOOD MARKET HUB
+              </span>
+              <span className="text-[9px] uppercase font-bold tracking-wider text-[#315B42]">
+                New Restaurant Partner Registration
+              </span>
+            </div>
+          </Link>
+
+          <div className="flex items-center gap-3 text-xs font-semibold">
+            <span className="text-[#8A7662] hidden sm:inline">Already registered?</span>
+            <Link
+              href="/login"
+              className="px-3 py-1.5 rounded-lg bg-white border border-[#E4D7C0] text-[#2C1E14] hover:bg-[#F9F5EC] transition-colors"
+            >
+              Sign In &rarr;
+            </Link>
+            <Link
+              href="/"
+              className="text-[#66523B] hover:text-[#2C1E14] transition-colors text-xs"
+            >
+              &times; Exit
+            </Link>
+          </div>
+        </div>
+
+        {/* Top Banner with Mascot reaction */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 pb-4 border-b border-[#E4D7C0]/80">
+          <Mascot
+            role="assistant"
+            expression={mascotReaction[step].expression}
+            size={52}
+            message={mascotReaction[step].message}
+          />
+          <button
+            type="button"
+            onClick={handlePreFillSample}
+            className="px-3.5 py-1.5 rounded-xl border border-[#F8C45C] bg-[#FEF6E4] hover:bg-[#FDE9BE] text-[#8C5D08] text-xs font-bold transition-all shadow-warm-xs flex items-center gap-1.5"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Use Sample Details (Urban Tandoor)</span>
+          </button>
+        </div>
 
       {/* Progress Stepper */}
       <Stepper
@@ -522,5 +559,6 @@ export default function OnboardingPage() {
         </div>
       </div>
     </div>
+  </div>
   );
 }

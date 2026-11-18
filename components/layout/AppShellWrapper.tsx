@@ -27,6 +27,9 @@ export function AppShellWrapper({ children }: { children: React.ReactNode }) {
   const isPlainPage =
     pathname === '/' ||
     pathname.startsWith('/onboarding') ||
+    pathname.startsWith('/app/onboarding') ||
+    pathname.startsWith('/register') ||
+    pathname.startsWith('/app/register') ||
     pathname.startsWith('/blog') ||
     pathname.startsWith('/styleguide') ||
     pathname.startsWith('/login') ||

@@ -868,58 +868,92 @@ function MenuManagementContent() {
                     const monthlyUsage = Math.round(
                       ing.quantityPerPortion * (activeDrawerDish.portionsSoldPerMonth || 200) * 10
                     ) / 10;
+                    const matchedIng = ingredients.find(
+                      (i) =>
+                        i.id === ing.ingredientId ||
+                        i.name.toLowerCase() === ing.ingredientName.toLowerCase() ||
+                        i.name.toLowerCase().includes(ing.ingredientName.toLowerCase())
+                    );
 
                     return (
-                      <div key={idx} className="p-2 px-2.5 flex items-center justify-between gap-2.5 text-xs">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-6 h-6 rounded-md bg-white border border-[#E4D7C0] flex items-center justify-center shrink-0">
-                            {getIngredientIllustration(ing.ingredientName, '', 16)}
+                      <div key={idx} className="p-2.5 space-y-1.5 hover:bg-[#FFF8EC]/60 transition-colors">
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-6 h-6 rounded-md bg-white border border-[#E4D7C0] flex items-center justify-center shrink-0">
+                              {getIngredientIllustration(ing.ingredientName, '', 16)}
+                            </div>
+                            <div className="min-w-0">
+                              <span className="font-bold text-[#2C1E14] block truncate text-[11px]">
+                                {ing.ingredientName}
+                              </span>
+                              <span className="text-[9px] text-[#8A7662]">
+                                Monthly: {monthlyUsage} {ing.unit}
+                              </span>
+                            </div>
                           </div>
-                          <div className="min-w-0">
-                            <span className="font-bold text-[#2C1E14] block truncate text-[11px]">
-                              {ing.ingredientName}
-                            </span>
-                            <span className="text-[9px] text-[#8A7662]">
-                              Monthly: {monthlyUsage} {ing.unit}
-                            </span>
+
+                          {/* Quantity Stepper & Remove */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <div className="flex items-center border border-[#E4D7C0] rounded-md bg-white">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newQty = Math.max(0.01, Math.round((ing.quantityPerPortion - 0.02) * 100) / 100);
+                                  updateDishIngredientQuantity(activeDrawerDish.id, ing.ingredientId, newQty);
+                                }}
+                                className="px-1.5 py-0.5 text-[#66523B] hover:text-[#2C1E14] text-[11px]"
+                              >
+                                -
+                              </button>
+                              <span className="px-1.5 font-mono text-[10px] font-semibold text-[#2C1E14]">
+                                {ing.quantityPerPortion} {ing.unit}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newQty = Math.round((ing.quantityPerPortion + 0.02) * 100) / 100;
+                                  updateDishIngredientQuantity(activeDrawerDish.id, ing.ingredientId, newQty);
+                                }}
+                                className="px-1.5 py-0.5 text-[#66523B] hover:text-[#2C1E14] text-[11px]"
+                              >
+                                +
+                              </button>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => removeDishIngredient(activeDrawerDish.id, ing.ingredientId)}
+                              className="w-5 h-5 rounded hover:bg-[#FEE2E2] text-[#C2410C] flex items-center justify-center"
+                              title="Remove ingredient"
+                            >
+                              <Trash2 className="w-2.5 h-2.5" />
+                            </button>
                           </div>
                         </div>
 
-                        {/* Quantity Stepper & Remove */}
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <div className="flex items-center border border-[#E4D7C0] rounded-md bg-white">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const newQty = Math.max(0.01, Math.round((ing.quantityPerPortion - 0.02) * 100) / 100);
-                                updateDishIngredientQuantity(activeDrawerDish.id, ing.ingredientId, newQty);
-                              }}
-                              className="px-1.5 py-0.5 text-[#66523B] hover:text-[#2C1E14] text-[11px]"
-                            >
-                              -
-                            </button>
-                            <span className="px-1.5 font-mono text-[10px] font-semibold text-[#2C1E14]">
-                              {ing.quantityPerPortion} {ing.unit}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const newQty = Math.round((ing.quantityPerPortion + 0.02) * 100) / 100;
-                                updateDishIngredientQuantity(activeDrawerDish.id, ing.ingredientId, newQty);
-                              }}
-                              className="px-1.5 py-0.5 text-[#66523B] hover:text-[#2C1E14] text-[11px]"
-                            >
-                              +
-                            </button>
-                          </div>
-
+                        {/* Direct Compare Suppliers Action */}
+                        <div className="flex items-center justify-between pt-1 border-t border-[#F1E8D8]/80 text-[10px]">
+                          <span className="text-[#8A7662]">
+                            {matchedIng ? (
+                              <>Mandi: <strong className="text-[#315B42]">₹{matchedIng.bestCityPrice}/{matchedIng.standardUnit}</strong></>
+                            ) : (
+                              'Live Mandi Rates'
+                            )}
+                          </span>
                           <button
                             type="button"
-                            onClick={() => removeDishIngredient(activeDrawerDish.id, ing.ingredientId)}
-                            className="w-5 h-5 rounded hover:bg-[#FEE2E2] text-[#C2410C] flex items-center justify-center"
-                            title="Remove ingredient"
+                            onClick={() => {
+                              const targetId = matchedIng?.id || ing.ingredientId;
+                              setSelectedDishForDrawer(null);
+                              router.push(
+                                `/app/suppliers?ingredientId=${encodeURIComponent(targetId)}&search=${encodeURIComponent(ing.ingredientName)}`
+                              );
+                            }}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#FFF9EF] border border-[#315B42]/30 text-[#315B42] hover:bg-[#EAF3ED] font-bold transition-all shadow-2xs"
+                            title={`Compare suppliers for ${ing.ingredientName}`}
                           >
-                            <Trash2 className="w-2.5 h-2.5" />
+                            <Store className="w-3 h-3 text-[#315B42]" />
+                            <span>Compare Suppliers &rarr;</span>
                           </button>
                         </div>
                       </div>

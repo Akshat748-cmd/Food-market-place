@@ -239,10 +239,10 @@ export default function LoginPage() {
           <p className="text-xs text-[#66523B]">
             New restaurant?{' '}
             <Link
-              href="/app/onboarding"
+              href="/register"
               className="font-bold text-[#315B42] hover:underline inline-flex items-center gap-0.5"
             >
-              Set up your restaurant menu &rarr;
+              Register & set up your restaurant &rarr;
             </Link>
           </p>
           <div className="text-[11px] text-[#8A7662]">

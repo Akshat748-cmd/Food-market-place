@@ -94,8 +94,15 @@ export default function SuppliersPage() {
       }
     }
 
-    if (ingId) {
-      const matchedIng = ingredients.find((i) => i.id === ingId);
+    if (ingId || searchParam) {
+      const term = (searchParam || ingId || '').toLowerCase();
+      const matchedIng = ingredients.find(
+        (i) =>
+          i.id === ingId ||
+          i.name.toLowerCase() === term ||
+          i.name.toLowerCase().includes(term) ||
+          term.includes(i.name.toLowerCase())
+      );
       if (matchedIng) {
         setSelectedIngredient(matchedIng);
       }

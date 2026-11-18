@@ -197,7 +197,7 @@ export function FooterSection() {
                 </Link>
               </li>
               <li>
-                <Link href="/app/onboarding" className="hover:text-[#F8C45C] transition-colors">
+                <Link href="/register" className="hover:text-[#F8C45C] transition-colors">
                   Start Free Trial
                 </Link>
               </li>

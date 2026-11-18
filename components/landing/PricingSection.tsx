@@ -164,7 +164,7 @@ export function PricingSection() {
               </div>
 
               <div>
-                <Link href="/app/onboarding">
+                <Link href="/register">
                   <Button variant={plan.buttonVariant} size="lg" fullWidth>
                     {plan.buttonLabel}
                   </Button>
