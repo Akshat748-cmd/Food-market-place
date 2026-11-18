@@ -1,1210 +1,1160 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, Suspense } from 'react';
+import React, { useState, useMemo, Suspense } from 'react';
+import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
   UploadCloud,
-  FileText,
-  Sparkles,
-  AlertCircle,
-  Trash2,
-  Edit2,
-  Check,
-  X,
-  ArrowRight,
-  Filter,
   Search,
-  ChevronDown,
-  ChevronUp,
-  Layers,
+  Filter,
+  Sparkles,
+  X,
+  Edit2,
+  Trash2,
+  ArrowRight,
+  Check,
+  AlertCircle,
   Flame,
-  Minus,
   Store,
-  Eye,
-  EyeOff,
+  Layers,
+  ChefHat,
+  FileText,
 } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useHydrated } from '@/lib/useHydration';
-import { Dish, FoodType, MenuGroup, DishTag, DishVariant } from '@/types';
+import { Dish, FoodType, MenuGroup, DishTag, DishIngredient } from '@/types';
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Mascot } from '@/components/ui/Mascot';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { MenuCardIllustration, VegetableBasketIllustration } from '@/components/illustrations';
-import { MENU_CATEGORIES_TREE } from '@/data/menuCategories';
+import { MenuCardIllustration } from '@/components/illustrations';
 import { RawIngredientVisual, getIngredientIllustration } from '@/lib/ingredientVisuals';
 import { useScrollLock } from '@/hooks/useScrollLock';
+
+// Preset categories for clean single-row navigation
+const MENU_CATEGORIES = [
+  'All',
+  'Starters',
+  'Soups',
+  'Main Course',
+  'Rice & Biryani',
+  'Indian Breads',
+  'Desserts',
+  'Beverages',
+] as const;
 
 function MenuManagementContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isHydrated = useHydrated();
+
   const {
     dishes,
     addDish,
     updateDish,
     deleteDish,
     ingredients,
+    updateDishIngredientQuantity,
+    addDishIngredient,
+    removeDishIngredient,
     getCurrentRestaurant,
   } = useAppStore();
 
   const currentRestaurant = isHydrated ? getCurrentRestaurant() : null;
 
-  // View mode synced with URL query (?view=dishes | ingredients | upload)
-  const initialView = searchParams.get('view') === 'ingredients' ? 'ingredients' : 'dishes';
-  const [activeView, setActiveView] = useState<'dishes' | 'ingredients' | 'upload'>(initialView);
+  // Primary navigation: 'dishes' | 'ingredients'
+  const [activeTab, setActiveTab] = useState<'dishes' | 'ingredients'>(
+    searchParams.get('tab') === 'ingredients' ? 'ingredients' : 'dishes'
+  );
 
-  useEffect(() => {
-    const v = searchParams.get('view');
-    if (v === 'ingredients') setActiveView('ingredients');
-    else if (v === 'upload') setActiveView('upload');
-    else setActiveView('dishes');
-  }, [searchParams]);
-
-  // Filtering state
-  const [foodTypeFilter, setFoodTypeFilter] = useState<'all' | 'veg' | 'egg' | 'nonveg' | 'jain'>('all');
+  // Category filter: single row
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'category' | 'price' | 'portions'>('category');
 
-  // Expansion controls
-  const [expandedDishId, setExpandedDishId] = useState<string | null>(null);
-  const [expandAllUnderDishes, setExpandAllUnderDishes] = useState(false);
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  // Advanced Filter Popover state
+  const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
+  const [foodTypeFilter, setFoodTypeFilter] = useState<'all' | 'veg' | 'egg' | 'nonveg' | 'jain'>('all');
+  const [sortBy, setSortBy] = useState<'name' | 'price_desc' | 'price_asc' | 'portions_desc'>('name');
 
-  // Modal / Drawer state
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  // Right-side Ingredient Drawer state
+  const [selectedDishForDrawer, setSelectedDishForDrawer] = useState<Dish | null>(null);
+
+  // New Ingredient form state inside drawer
+  const [isAddingIngredient, setIsAddingIngredient] = useState(false);
+  const [selectedIngredientToAdd, setSelectedIngredientToAdd] = useState(ingredients[0]?.id || '');
+  const [newIngredientQty, setNewIngredientQty] = useState('0.15');
+
+  // Modals state
+  const [addDishModalOpen, setAddDishModalOpen] = useState(false);
   const [editingDish, setEditingDish] = useState<Dish | null>(null);
-
-  // Lock scrolling when Add/Edit modal is open
-  useScrollLock(drawerOpen);
-
-  // Form State for Add / Edit Dish Modal
-  const [formName, setFormName] = useState('');
-  const [formGroup, setFormGroup] = useState<MenuGroup>('food');
-  const [formCategory, setFormCategory] = useState<string>('Starters & Appetizers');
-  const [formSubcategory, setFormSubcategory] = useState<string>('Veg Starters');
-  const [formFoodType, setFormFoodType] = useState<FoodType>('veg');
-  const [formPrice, setFormPrice] = useState('385');
-  const [formDescription, setFormDescription] = useState('');
-  const [formPortions, setFormPortions] = useState('350');
-  const [formSpiceLevel, setFormSpiceLevel] = useState<number>(1);
-  const [formTags, setFormTags] = useState<DishTag[]>([]);
-  const [formVariants, setFormVariants] = useState<DishVariant[]>([]);
-  const [formIsAvailable, setFormIsAvailable] = useState(true);
-  const [formError, setFormError] = useState<string | null>(null);
-
-  // Upload simulation state
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const [parsingProgress, setParsingProgress] = useState(0);
 
-  // Low confidence flagged dish IDs for review badge
-  const lowConfidenceIds = ['dish-06', 'dish-09'];
+  // Lock scroll when modals or drawer are open
+  useScrollLock(addDishModalOpen || uploadModalOpen || Boolean(selectedDishForDrawer));
 
-  // Toggle Collapse section
-  const toggleSection = (secKey: string) => {
-    setCollapsedSections((prev) => ({ ...prev, [secKey]: !prev[secKey] }));
-  };
+  // Dish Form state
+  const [formName, setFormName] = useState('');
+  const [formGroup, setFormGroup] = useState<MenuGroup>('food');
+  const [formCategory, setFormCategory] = useState('Main Course');
+  const [formFoodType, setFormFoodType] = useState<FoodType>('veg');
+  const [formPrice, setFormPrice] = useState('350');
+  const [formDescription, setFormDescription] = useState('');
+  const [formPortions, setFormPortions] = useState('300');
+  const [formSpiceLevel, setFormSpiceLevel] = useState<number>(1);
+  const [formTags, setFormTags] = useState<DishTag[]>([]);
+  const [formImage, setFormImage] = useState(
+    'https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=600&q=80'
+  );
 
-  const toggleCollapseAll = () => {
-    const allCollapsed = Object.values(collapsedSections).some(Boolean);
-    if (allCollapsed) {
-      setCollapsedSections({});
-    } else {
-      setCollapsedSections({
-        vegFood: true,
-        eggFood: true,
-        nonvegFood: true,
-        dessert: true,
-        beverage: true,
+  // Keep drawer in sync with updated store dish
+  const activeDrawerDish = useMemo(() => {
+    if (!selectedDishForDrawer) return null;
+    return dishes.find((d) => d.id === selectedDishForDrawer.id) || selectedDishForDrawer;
+  }, [dishes, selectedDishForDrawer]);
+
+  // Filtered and sorted dishes
+  const filteredDishes = useMemo(() => {
+    return dishes
+      .filter((dish) => {
+        // Category filter
+        if (selectedCategory !== 'All') {
+          const cat = dish.category.toLowerCase();
+          const target = selectedCategory.toLowerCase();
+          const match =
+            cat.includes(target) ||
+            (target === 'starters' && (cat.includes('starter') || cat.includes('appetizer'))) ||
+            (target === 'soups' && cat.includes('soup')) ||
+            (target === 'main course' && cat.includes('main')) ||
+            (target === 'rice & biryani' && (cat.includes('rice') || cat.includes('biryani') || cat.includes('pulao'))) ||
+            (target === 'indian breads' && (cat.includes('bread') || cat.includes('roti') || cat.includes('naan'))) ||
+            (target === 'desserts' && (cat.includes('dessert') || cat.includes('sweet') || cat.includes('mithai'))) ||
+            (target === 'beverages' && (cat.includes('beverage') || cat.includes('drink') || cat.includes('cooler')));
+          if (!match) return false;
+        }
+
+        // Food classification filter (inside popover)
+        const actualType = dish.foodType || (dish.isVeg ? 'veg' : 'nonveg');
+        if (foodTypeFilter === 'veg' && actualType !== 'veg') return false;
+        if (foodTypeFilter === 'egg' && actualType !== 'egg') return false;
+        if (foodTypeFilter === 'nonveg' && actualType !== 'nonveg') return false;
+        if (foodTypeFilter === 'jain') {
+          const hasJain = dish.tags?.includes('jain') || dish.name.toLowerCase().includes('jain');
+          if (!hasJain) return false;
+        }
+
+        // Search query
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const matchName = dish.name.toLowerCase().includes(q);
+          const matchDesc = dish.description.toLowerCase().includes(q);
+          const matchIng = dish.ingredients.some((i) => i.ingredientName.toLowerCase().includes(q));
+          if (!matchName && !matchDesc && !matchIng) return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'price_desc') return b.price - a.price;
+        if (sortBy === 'price_asc') return a.price - b.price;
+        if (sortBy === 'portions_desc') return b.portionsSoldPerMonth - a.portionsSoldPerMonth;
+        return a.name.localeCompare(b.name);
       });
-    }
-  };
+  }, [dishes, selectedCategory, foodTypeFilter, searchQuery, sortBy]);
 
-  // Indian Food-Type Mark Indicator
-  const renderFoodTypeMark = (ft?: FoodType, isVeg?: boolean) => {
-    const actual = ft || (isVeg ? 'veg' : 'nonveg');
-    if (actual === 'veg') {
-      return (
-        <span className="w-4 h-4 border-2 border-[#315B42] rounded-sm flex items-center justify-center shrink-0" title="Vegetarian">
-          <span className="w-2 h-2 rounded-full bg-[#315B42]" />
-        </span>
-      );
-    }
-    if (actual === 'egg') {
-      return (
-        <span className="w-4 h-4 border-2 border-[#B45309] rounded-sm flex items-center justify-center shrink-0" title="Eggetarian">
-          <span className="w-2 h-2 rounded-full bg-[#B45309]" />
-        </span>
-      );
-    }
-    return (
-      <span className="w-4 h-4 border-2 border-[#C2410C] rounded-sm flex items-center justify-center shrink-0" title="Non-Vegetarian">
-        <span className="w-2 h-2 rounded-full bg-[#C2410C]" />
-      </span>
-    );
-  };
-
-  // Open modal handlers
-  const handleOpenAddDrawer = () => {
-    setEditingDish(null);
-    setFormName('');
-    setFormGroup('food');
-    setFormCategory('Starters & Appetizers');
-    setFormSubcategory('Veg Starters');
-    setFormFoodType('veg');
-    setFormPrice('350');
-    setFormDescription('');
-    setFormPortions('300');
-    setFormSpiceLevel(1);
-    setFormTags([]);
-    setFormVariants([]);
-    setFormIsAvailable(true);
-    setFormError(null);
-    setDrawerOpen(true);
-  };
-
-  const handleOpenEditDrawer = (dish: Dish) => {
+  // Open Edit Dish Modal
+  const handleOpenEditModal = (dish: Dish, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setEditingDish(dish);
     setFormName(dish.name);
     setFormGroup(dish.group || 'food');
     setFormCategory(dish.category);
-    setFormSubcategory(dish.subcategory || '');
     setFormFoodType(dish.foodType || (dish.isVeg ? 'veg' : 'nonveg'));
-    setFormPrice(dish.price.toString());
+    setFormPrice(String(dish.price));
     setFormDescription(dish.description || '');
-    setFormPortions(dish.portionsSoldPerMonth.toString());
-    setFormSpiceLevel(dish.spiceLevel ?? 1);
+    setFormPortions(String(dish.portionsSoldPerMonth || 200));
+    setFormSpiceLevel(dish.spiceLevel || 1);
     setFormTags(dish.tags || []);
-    setFormVariants(dish.variants || []);
-    setFormIsAvailable(dish.isAvailable ?? true);
-    setFormError(null);
-    setDrawerOpen(true);
+    setFormImage(
+      dish.image ||
+        'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=600&q=80'
+    );
+    setAddDishModalOpen(true);
   };
 
+  // Open Add Dish Modal
+  const handleOpenAddModal = () => {
+    setEditingDish(null);
+    setFormName('');
+    setFormGroup('food');
+    setFormCategory('Main Course');
+    setFormFoodType('veg');
+    setFormPrice('320');
+    setFormDescription('');
+    setFormPortions('300');
+    setFormSpiceLevel(1);
+    setFormTags([]);
+    setFormImage(
+      'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=600&q=80'
+    );
+    setAddDishModalOpen(true);
+  };
+
+  // Save Dish Form
   const handleSaveDish = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formName.trim()) {
-      setFormError('Dish name is required');
-      return;
-    }
+    if (!formName.trim()) return;
 
-    // Validation: Jain cannot be combined with Egg or Non-Veg
-    if (formTags.includes('jain') && (formFoodType === 'egg' || formFoodType === 'nonveg')) {
-      setFormError('Jain classification cannot contain Egg or Non-Veg.');
-      return;
-    }
-
-    const priceNum = Number(formPrice) || 0;
+    const priceNum = Number(formPrice) || 250;
     const isVegBool = formFoodType === 'veg';
 
     if (editingDish) {
       updateDish({
         ...editingDish,
-        name: formName,
+        name: formName.trim(),
         group: formGroup,
         category: formCategory,
-        subcategory: formSubcategory,
         foodType: formFoodType,
         isVeg: isVegBool,
         price: priceNum,
-        description: formDescription,
-        portionsSoldPerMonth: Number(formPortions) || 100,
+        description: formDescription.trim(),
+        portionsSoldPerMonth: Number(formPortions) || 200,
         spiceLevel: formSpiceLevel,
         tags: formTags,
-        variants: formVariants,
-        isAvailable: formIsAvailable,
+        image: formImage,
       });
     } else {
       const newDish: Dish = {
         id: `dish-custom-${Date.now()}`,
         restaurantId: currentRestaurant?.id || 'rest-delhi-01',
-        name: formName,
+        name: formName.trim(),
         group: formGroup,
         category: formCategory,
-        subcategory: formSubcategory,
         foodType: formFoodType,
         isVeg: isVegBool,
         price: priceNum,
-        description: formDescription,
-        image: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=600&q=80',
-        portionsSoldPerMonth: Number(formPortions) || 100,
+        description: formDescription.trim(),
+        image: formImage,
+        portionsSoldPerMonth: Number(formPortions) || 200,
         spiceLevel: formSpiceLevel,
         tags: formTags,
-        variants: formVariants,
-        isAvailable: formIsAvailable,
         ingredients: [
-          { ingredientId: 'ing-paneer-01', ingredientName: 'Main Base Commodity', quantityPerPortion: 0.2, unit: 'kg' },
-          { ingredientId: 'ing-tomato-16', ingredientName: 'Salad / Base Vegetables', quantityPerPortion: 0.15, unit: 'kg' },
-          { ingredientId: 'ing-ghee-desi-39', ingredientName: 'Pure Cooking Fat', quantityPerPortion: 0.03, unit: 'kg' },
+          {
+            ingredientId: 'ing-paneer-01',
+            ingredientName: 'Fresh Malai Paneer',
+            quantityPerPortion: 0.18,
+            unit: 'kg',
+          },
+          {
+            ingredientId: 'ing-tomato-16',
+            ingredientName: 'Salad Tomatoes',
+            quantityPerPortion: 0.12,
+            unit: 'kg',
+          },
+          {
+            ingredientId: 'ing-ghee-desi-39',
+            ingredientName: 'Pure Desi Ghee',
+            quantityPerPortion: 0.02,
+            unit: 'kg',
+          },
         ],
       };
       addDish(newDish);
     }
-    setDrawerOpen(false);
+    setAddDishModalOpen(false);
   };
 
-  // Filter dishes
-  const filteredDishes = useMemo(() => {
-    return dishes.filter((dish) => {
-      // FoodType / Jain filter
-      const actualType = dish.foodType || (dish.isVeg ? 'veg' : 'nonveg');
-      if (foodTypeFilter === 'veg' && actualType !== 'veg') return false;
-      if (foodTypeFilter === 'egg' && actualType !== 'egg') return false;
-      if (foodTypeFilter === 'nonveg' && actualType !== 'nonveg') return false;
-      if (foodTypeFilter === 'jain') {
-        const hasJainTag = dish.tags?.includes('jain') || dish.name.toLowerCase().includes('jain');
-        if (!hasJainTag) return false;
-      }
+  // Add ingredient to active drawer dish
+  const handleAddIngredientToDish = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeDrawerDish) return;
+    const targetIng = ingredients.find((i) => i.id === selectedIngredientToAdd);
+    if (!targetIng) return;
 
-      // Category filter
-      if (selectedCategory !== 'All') {
-        const catMatch =
-          dish.category.toLowerCase().includes(selectedCategory.toLowerCase()) ||
-          dish.group?.toLowerCase() === selectedCategory.toLowerCase();
-        if (!catMatch) return false;
-      }
-
-      // Search
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        const matchesName = dish.name.toLowerCase().includes(q);
-        const matchesDesc = dish.description.toLowerCase().includes(q);
-        const matchesIng = dish.ingredients.some((i) => i.ingredientName.toLowerCase().includes(q));
-        if (!matchesName && !matchesDesc && !matchesIng) return false;
-      }
-
-      return true;
+    const qty = parseFloat(newIngredientQty) || 0.1;
+    addDishIngredient(activeDrawerDish.id, {
+      ingredientId: targetIng.id,
+      ingredientName: targetIng.name,
+      quantityPerPortion: qty,
+      unit: targetIng.standardUnit,
     });
-  }, [dishes, foodTypeFilter, selectedCategory, searchQuery]);
-
-  // Group filtered dishes into FOOD (veg, egg, non-veg), DESSERTS, and BEVERAGES
-  const structuredSections = useMemo(() => {
-    const vegFood: Dish[] = [];
-    const eggFood: Dish[] = [];
-    const nonvegFood: Dish[] = [];
-    const desserts: Dish[] = [];
-    const beverages: Dish[] = [];
-
-    filteredDishes.forEach((d) => {
-      const g = d.group || 'food';
-      const ft = d.foodType || (d.isVeg ? 'veg' : 'nonveg');
-
-      if (g === 'dessert' || d.category.toLowerCase().includes('dessert')) {
-        desserts.push(d);
-      } else if (g === 'beverage' || d.category.toLowerCase().includes('beverage')) {
-        beverages.push(d);
-      } else {
-        if (ft === 'veg') vegFood.push(d);
-        else if (ft === 'egg') eggFood.push(d);
-        else nonvegFood.push(d);
-      }
-    });
-
-    const sortFn = (a: Dish, b: Dish) => {
-      if (sortBy === 'price') return b.price - a.price;
-      if (sortBy === 'portions') return b.portionsSoldPerMonth - a.portionsSoldPerMonth;
-      return a.category.localeCompare(b.category);
-    };
-
-    return {
-      vegFood: vegFood.sort(sortFn),
-      eggFood: eggFood.sort(sortFn),
-      nonvegFood: nonvegFood.sort(sortFn),
-      desserts: desserts.sort(sortFn),
-      beverages: beverages.sort(sortFn),
-    };
-  }, [filteredDishes, sortBy]);
-
-  // Dish row renderer with expandable recipe card
-  const renderDishRow = (dish: Dish, idx: number) => {
-    const isExpanded = expandAllUnderDishes || expandedDishId === dish.id;
-    const isLowConfidence = lowConfidenceIds.includes(dish.id);
-
-    return (
-      <div
-        key={dish.id}
-        className="py-3.5 px-3 rounded-2xl transition-colors hover:bg-[#F9F5EC] group border-b border-[#F1E8D8]/60 last:border-b-0"
-      >
-        {/* Line 1: Food-type mark, Dish name, Dotted leader, Price */}
-        <div
-          onClick={() => setExpandedDishId(expandedDishId === dish.id ? null : dish.id)}
-          className="flex items-center justify-between gap-2 w-full cursor-pointer select-none"
-        >
-          {renderFoodTypeMark(dish.foodType, dish.isVeg)}
-
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="font-fraunces font-semibold text-base sm:text-lg text-[#2C1E14] tracking-tight">
-              {dish.name}
-            </span>
-
-            {/* Tags / Badges */}
-            {dish.tags?.includes('jain') && (
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#166534] bg-[#DCFCE7] px-1.5 py-0.5 rounded border border-[#BBF7D0]">
-                Jain
-              </span>
-            )}
-            {dish.tags?.includes('chefSpecial') && (
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#7C2D12] bg-[#FFEDD5] px-1.5 py-0.5 rounded">
-                Chef&apos;s Special
-              </span>
-            )}
-            {dish.tags?.includes('bestseller') && (
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#1E3A8A] bg-[#DBEAFE] px-1.5 py-0.5 rounded">
-                Bestseller
-              </span>
-            )}
-            {dish.spiceLevel !== undefined && dish.spiceLevel > 0 && (
-              <span className="inline-flex items-center text-xs text-rose-600" title={`Spice Level: ${dish.spiceLevel}/3`}>
-                {Array.from({ length: dish.spiceLevel }).map((_, i) => (
-                  <Flame key={i} className="w-3 h-3 fill-rose-500 text-rose-500 -ml-0.5" />
-                ))}
-              </span>
-            )}
-          </div>
-
-          {/* Dotted leader stretching to price */}
-          <div className="flex-1 border-b-2 border-dotted border-[#D1BF9F] mx-2 sm:mx-3 min-w-[20px]" />
-
-          {/* Price / Variants */}
-          <div className="text-right shrink-0">
-            {dish.variants && dish.variants.length > 0 ? (
-              <span className="font-fraunces text-sm sm:text-base font-bold text-[#8C5D08]">
-                {dish.variants.map((v) => `${v.name} ₹${v.price}`).join(' | ')}
-              </span>
-            ) : (
-              <span className="font-fraunces text-lg sm:text-xl font-bold text-[#8C5D08]">
-                {formatCurrency(dish.price)}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Line 2: Description */}
-        <p className="text-sm text-[#66523B] line-clamp-2 mt-1 leading-snug">
-          {dish.description}
-        </p>
-
-        {/* Line 3: Meta chips, amber warning, actions */}
-        <div className="flex items-center justify-between gap-2 mt-2 pt-1 text-xs">
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setExpandedDishId(expandedDishId === dish.id ? null : dish.id)}
-              className="text-[11px] font-bold text-[#315B42] hover:underline flex items-center gap-1 bg-[#EAF3ED] px-2 py-0.5 rounded-md"
-            >
-              <span>{dish.ingredients.length} raw ingredients</span>
-              {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            </button>
-            <span className="text-[11px] font-semibold text-[#8A7662] bg-[#F1E8D8] px-2 py-0.5 rounded-md">
-              {dish.portionsSoldPerMonth} portions/mo
-            </span>
-            {isLowConfidence && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#B45309] bg-[#FEF3C7] px-2 py-0.5 rounded-full border border-[#FDE68A]">
-                <AlertCircle className="w-3 h-3" />
-                <span>Please check ingredients</span>
-              </span>
-            )}
-          </div>
-
-          {/* Edit / Delete (Always visible on mobile; hover on desktop) */}
-          <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity shrink-0">
-            <button
-              type="button"
-              onClick={() => handleOpenEditDrawer(dish)}
-              className="w-8 h-8 rounded-lg bg-white border border-[#EBE1CF] hover:bg-[#FEF6E4] text-[#66523B] hover:text-[#2C1E14] transition-colors flex items-center justify-center shadow-xs"
-              title="Edit Dish Recipe"
-            >
-              <Edit2 className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => deleteDish(dish.id)}
-              className="w-8 h-8 rounded-lg bg-white border border-[#EBE1CF] hover:bg-[#FEE2E2] text-[#C2410C] transition-colors flex items-center justify-center shadow-xs"
-              title="Delete Dish"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-
-        {/* EXPANDED INLINE RECIPE CARD (Only one expanded at a time, unless toggle is on) */}
-        <AnimatePresence>
-          {isExpanded && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden mt-3 pt-3 border-t border-[#E4D7C0]/60 bg-[#FFFDF9] rounded-2xl p-3.5 space-y-3"
-            >
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-[#2C1E14]">Raw Ingredient Recipe Ledger</span>
-                <span className="text-[11px] text-[#8A7662]">Calculates monthly kitchen demand</span>
-              </div>
-
-              <div className="divide-y divide-[#F1E8D8] text-xs">
-                {dish.ingredients.map((ing, iIdx) => {
-                  const monthlyNeed = Math.round(ing.quantityPerPortion * dish.portionsSoldPerMonth * 10) / 10;
-                  return (
-                    <div key={iIdx} className="py-2 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-7 h-7 rounded-lg bg-white border border-[#E4D7C0] flex items-center justify-center shrink-0">
-                          {getIngredientIllustration(ing.ingredientName, '', 20)}
-                        </div>
-                        <span className="font-semibold text-[#2C1E14] truncate">{ing.ingredientName}</span>
-                      </div>
-
-                      {/* Stepper + Unit */}
-                      <div className="flex items-center gap-3 shrink-0">
-                        <span className="font-mono text-[#66523B]">
-                          {ing.quantityPerPortion} {ing.unit} / portion
-                        </span>
-                        <span className="font-mono font-bold text-[#315B42] bg-[#EAF3ED] px-2 py-0.5 rounded">
-                          {monthlyNeed} {ing.unit}/mo
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    );
+    setIsAddingIngredient(false);
   };
 
   return (
-    <div className="space-y-4">
-      {/* 1. TOP HEADER (~72px compact) with 3-way Segmented Control: Dishes | All Ingredients | Upload */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E4D7C0]/60 pb-3">
+    <div className="space-y-4 max-w-7xl mx-auto pb-12">
+      {/* 1. CLEAN HEADER (Heading, Subtitle, Summary Counters & Primary Action Buttons) */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#E4D7C0]/70 pb-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#263D2D] font-outfit tracking-tight leading-none">
-            My <span className="font-fraunces italic font-normal text-[#315B42]">Menu & Ingredients</span>
-          </h1>
-          <p className="text-xs text-[#66523B] mt-1 font-medium">
-            {dishes.length} recipes &bull; {ingredients.length} commodities tracked across {currentRestaurant?.name || 'Delhi Haveli'}
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-bold font-fraunces text-[#2C1E14] tracking-tight">
+              My Menu
+            </h1>
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#EAF3ED] border border-[#315B42]/20 text-[#315B42] text-[11px] font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#315B42]" />
+              {dishes.length} Dishes &bull; {ingredients.length} Ingredients
+            </span>
+          </div>
+          <p className="text-xs text-[#66523B] mt-0.5 font-normal">
+            Manage your restaurant dishes, recipes and ingredients.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0 flex-wrap">
-          {/* Segmented Control: Dishes | All Ingredients | Upload */}
-          <div className="bg-[#F1E8D8] p-1 rounded-xl flex items-center text-xs font-bold border border-[#E0D1B8]">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveView('dishes');
-                router.replace('/app/menu');
-              }}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
-                activeView === 'dishes'
-                  ? 'bg-white text-[#263D2D] shadow-warm-xs'
-                  : 'text-[#66523B] hover:text-[#263D2D]'
-              }`}
-            >
-              Dishes ({dishes.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveView('ingredients');
-                router.replace('/app/menu?view=ingredients');
-              }}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
-                activeView === 'ingredients'
-                  ? 'bg-white text-[#263D2D] shadow-warm-xs'
-                  : 'text-[#66523B] hover:text-[#263D2D]'
-              }`}
-            >
-              All Ingredients ({ingredients.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveView('upload')}
-              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 ${
-                activeView === 'upload'
-                  ? 'bg-white text-[#263D2D] shadow-warm-xs'
-                  : 'text-[#66523B] hover:text-[#263D2D]'
-              }`}
-            >
-              <UploadCloud className="w-3.5 h-3.5" />
-              <span>Upload</span>
-            </button>
-          </div>
-
-          {/* Golden Add Dish Button */}
+        {/* Header Actions */}
+        <div className="flex items-center gap-2 self-start md:self-auto shrink-0 flex-wrap">
+          {/* AI Action: Analyse Ingredients with AI */}
           <button
             type="button"
-            onClick={handleOpenAddDrawer}
-            className="px-3.5 py-2 rounded-xl bg-[#F8C45C] hover:bg-[#eab348] text-[#263D2D] text-xs font-bold transition-all shadow-warm-xs flex items-center gap-1.5 active:scale-95"
+            onClick={() => router.push('/app/processing')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#F8C45C] bg-[#FFF8E7] hover:bg-[#FDECC2] text-[#8C5D08] text-xs font-bold transition-all shadow-xs"
+            title="Run AI ingredient extraction and price matching"
           >
-            <Plus className="w-4 h-4" />
-            <span>Add dish</span>
+            <Sparkles className="w-3.5 h-3.5 text-[#F8C45C]" />
+            <span>Analyse with AI</span>
+          </button>
+
+          {/* Upload Menu Button (Prominent, Separate) */}
+          <button
+            type="button"
+            onClick={() => setUploadModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#315B42]/30 bg-[#EAF3ED] hover:bg-[#d8ebd8] text-[#1D432B] text-xs font-bold transition-all shadow-xs"
+          >
+            <UploadCloud className="w-3.5 h-3.5 text-[#315B42]" />
+            <span>Upload Menu</span>
+          </button>
+
+          {/* Add Dish Button (Golden Primary, Separate) */}
+          <button
+            type="button"
+            onClick={handleOpenAddModal}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#F8C45C] hover:bg-[#eab348] text-[#263D2D] text-xs font-bold transition-all shadow-warm-xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Dish</span>
           </button>
         </div>
       </div>
 
-      {/* VIEW 1: DISHES (Comprehensive structured layout) */}
-      {activeView === 'dishes' && (
-        <div className="space-y-4">
-          {/* STICKY FILTER BAR (Sticky below 64px top bar) */}
-          <div className="sticky top-16 z-10 bg-[#FFF9EF]/95 backdrop-blur-md py-2.5 border-b border-[#E4D7C0]/80 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 space-y-2">
-            {/* Row 1: Food-type Segmented (All, Veg, Egg, Non-Veg, Jain) + Search + Sort */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-              <div className="bg-[#F1E8D8] p-1 rounded-xl flex items-center text-xs font-bold border border-[#E0D1B8] overflow-x-auto no-scrollbar">
-                {(['all', 'veg', 'egg', 'nonveg', 'jain'] as const).map((t) => {
-                  const label =
-                    t === 'all'
-                      ? `All (${dishes.length})`
-                      : t === 'veg'
-                      ? `Veg (${dishes.filter((d) => d.foodType === 'veg' || d.isVeg).length})`
-                      : t === 'egg'
-                      ? `Egg (${dishes.filter((d) => d.foodType === 'egg').length})`
-                      : t === 'nonveg'
-                      ? `Non-Veg (${dishes.filter((d) => d.foodType === 'nonveg' || (!d.isVeg && d.foodType !== 'egg')).length})`
-                      : `Jain (${dishes.filter((d) => d.tags?.includes('jain')).length})`;
+      {/* 2. PRIMARY NAVIGATION (All Dishes vs All Ingredients) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+        <div className="bg-[#F1E8D8] p-0.5 rounded-lg inline-flex items-center text-xs font-bold border border-[#E0D1B8] w-fit">
+          <button
+            type="button"
+            onClick={() => setActiveTab('dishes')}
+            className={`px-3 py-1 rounded-md transition-all ${
+              activeTab === 'dishes'
+                ? 'bg-white text-[#263D2D] shadow-warm-xs'
+                : 'text-[#66523B] hover:text-[#263D2D]'
+            }`}
+          >
+            All Dishes ({dishes.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('ingredients')}
+            className={`px-3 py-1 rounded-md transition-all ${
+              activeTab === 'ingredients'
+                ? 'bg-white text-[#263D2D] shadow-warm-xs'
+                : 'text-[#66523B] hover:text-[#263D2D]'
+            }`}
+          >
+            All Ingredients ({ingredients.length})
+          </button>
+        </div>
 
-                  return (
+        {/* Search Bar + Advanced Filters Popover Trigger */}
+        {activeTab === 'dishes' && (
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 sm:w-56">
+              <Search className="w-3.5 h-3.5 text-[#8A7662] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search dishes or ingredients..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-[#E4D7C0] bg-white text-xs text-[#2C1E14] focus:outline-none focus:border-[#315B42] h-8"
+              />
+            </div>
+
+            {/* Filter Popover Button */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setFilterPopoverOpen(!filterPopoverOpen)}
+                className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 h-8 transition-colors ${
+                  foodTypeFilter !== 'all' || sortBy !== 'name'
+                    ? 'bg-[#263D2D] text-white border-[#263D2D]'
+                    : 'bg-white border-[#E4D7C0] text-[#66523B] hover:text-[#2C1E14]'
+                }`}
+              >
+                <Filter className="w-3.5 h-3.5" />
+                <span>Filters</span>
+                {foodTypeFilter !== 'all' && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#F8C45C]" />
+                )}
+              </button>
+
+              {/* Advanced Filter Popover */}
+              {filterPopoverOpen && (
+                <div className="absolute right-0 mt-1.5 w-64 bg-white border border-[#E4D7C0] rounded-xl shadow-warm-xl p-3 z-30 space-y-3 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-[#F1E8D8]">
+                    <span className="text-xs font-bold text-[#2C1E14]">Filter & Sort</span>
                     <button
-                      key={t}
-                      onClick={() => setFoodTypeFilter(t)}
-                      className={`px-3 py-1.5 rounded-lg transition-all capitalize whitespace-nowrap ${
-                        foodTypeFilter === t
-                          ? 'bg-[#263D2D] text-white shadow-warm-xs'
-                          : 'text-[#66523B] hover:text-[#2C1E14]'
-                      }`}
+                      type="button"
+                      onClick={() => {
+                        setFoodTypeFilter('all');
+                        setSortBy('name');
+                      }}
+                      className="text-[10px] text-[#315B42] font-semibold hover:underline"
                     >
-                      {label}
+                      Reset
                     </button>
-                  );
-                })}
-              </div>
+                  </div>
 
-              <div className="flex items-center gap-2">
-                {/* Search Box */}
-                <div className="relative flex-1 sm:w-56">
-                  <Search className="w-3.5 h-3.5 text-[#8A7662] absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder="Search dishes or ingredients..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-[#E4D7C0] bg-white text-xs text-[#2C1E14] focus:outline-none"
-                  />
-                </div>
+                  {/* Dietary Classification */}
+                  <div>
+                    <label className="block text-[10px] uppercase font-bold text-[#8A7662] mb-1">
+                      Dietary Classification
+                    </label>
+                    <div className="grid grid-cols-2 gap-1 text-[11px]">
+                      {[
+                        { id: 'all', label: 'All Items' },
+                        { id: 'veg', label: 'Vegetarian' },
+                        { id: 'egg', label: 'Egg Only' },
+                        { id: 'nonveg', label: 'Non-Veg' },
+                        { id: 'jain', label: 'Jain Friendly' },
+                      ].map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setFoodTypeFilter(item.id as any)}
+                          className={`px-2 py-1 rounded text-left font-medium transition-colors ${
+                            foodTypeFilter === item.id
+                              ? 'bg-[#263D2D] text-white'
+                              : 'bg-[#FFF9EF] text-[#66523B] hover:bg-[#F1E8D8]'
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-                {/* Sort Select */}
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
-                  className="bg-white border border-[#E4D7C0] text-xs font-semibold text-[#2C1E14] py-1.5 px-2.5 rounded-xl focus:outline-none cursor-pointer"
-                >
-                  <option value="category">Sort: Category</option>
-                  <option value="price">Sort: Price (High to Low)</option>
-                  <option value="portions">Sort: Volume</option>
-                </select>
+                  {/* Sort By */}
+                  <div>
+                    <label className="block text-[10px] uppercase font-bold text-[#8A7662] mb-1">
+                      Sort Dishes
+                    </label>
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as any)}
+                      className="w-full bg-[#FFF9EF] border border-[#E4D7C0] rounded-lg p-1.5 text-xs text-[#2C1E14] font-medium focus:outline-none"
+                    >
+                      <option value="name">Alphabetical (A - Z)</option>
+                      <option value="price_desc">Price: High to Low</option>
+                      <option value="price_asc">Price: Low to High</option>
+                      <option value="portions_desc">Monthly Volume Sold</option>
+                    </select>
+                  </div>
 
-                {/* Show all ingredients toggle */}
-                <button
-                  type="button"
-                  onClick={() => setExpandAllUnderDishes(!expandAllUnderDishes)}
-                  className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1 transition-colors ${
-                    expandAllUnderDishes
-                      ? 'bg-[#263D2D] text-white border-[#263D2D]'
-                      : 'bg-white text-[#66523B] border-[#E4D7C0]'
-                  }`}
-                  title="Toggle all recipes inline"
-                >
-                  {expandAllUnderDishes ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Row 2: Horizontally scrollable Category Chips from Tree */}
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
-              <Filter className="w-3.5 h-3.5 text-[#8A7662] shrink-0" />
-              {['All', ...MENU_CATEGORIES_TREE.map((c) => c.name)].map((cat) => {
-                const count =
-                  cat === 'All'
-                    ? dishes.length
-                    : dishes.filter((d) => d.category.toLowerCase().includes(cat.toLowerCase()) || d.group === cat.toLowerCase()).length;
-
-                const isSelected = selectedCategory === cat;
-
-                return (
                   <button
-                    key={cat}
-                    onClick={() => setSelectedCategory(cat)}
-                    className={`px-3 py-1 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
-                      isSelected
-                        ? 'bg-[#263D2D] text-white shadow-warm-xs'
-                        : 'bg-white border border-[#EBE1CF] text-[#66523B] hover:bg-[#F1E8D8]/60 hover:text-[#2C1E14]'
-                    }`}
+                    type="button"
+                    onClick={() => setFilterPopoverOpen(false)}
+                    className="w-full py-1.5 rounded-lg bg-[#F8C45C] text-[#263D2D] text-xs font-bold hover:bg-[#eab348]"
                   >
-                    <span>{cat}</span>
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${isSelected ? 'bg-white/20 text-white' : 'bg-[#F1E8D8] text-[#66523B]'}`}>
-                      {count}
-                    </span>
+                    Apply Filters
                   </button>
-                );
-              })}
+                </div>
+              )}
             </div>
           </div>
+        )}
+      </div>
 
-          {/* Active Filter Summary line */}
-          <div className="flex items-center justify-between text-xs text-[#8A7662] px-1">
-            <span>Showing {filteredDishes.length} dishes matching criteria</span>
-            <button onClick={toggleCollapseAll} className="hover:underline font-semibold">
-              Collapse / Expand Sections
-            </button>
-          </div>
+      {/* 3. CATEGORY NAVIGATION (Clean Single Row of Chips, No Stacking) */}
+      {activeTab === 'dishes' && (
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+          {MENU_CATEGORIES.map((cat) => {
+            const isSelected = selectedCategory === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setSelectedCategory(cat)}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                  isSelected
+                    ? 'bg-[#263D2D] text-white shadow-xs'
+                    : 'bg-white border border-[#EBE1CF] text-[#66523B] hover:bg-[#F1E8D8]/60 hover:text-[#2C1E14]'
+                }`}
+              >
+                {cat}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-          {/* 2. BODY ORGANIZED IN EXACT REQUIRED STRUCTURE:
-              1. FOOD: Vegetarian, Eggetarian, Non-Vegetarian
-              2. DESSERTS
-              3. BEVERAGES
-          */}
-          <div className="space-y-6">
-            {/* SECTION 1A: VEGETARIAN FOOD */}
-            {structuredSections.vegFood.length > 0 && (
-              <div className="bg-[#FFFDF9] border border-[#E0D1B8] rounded-3xl p-5 sm:p-7 shadow-warm-xs space-y-4">
-                <div
-                  onClick={() => toggleSection('vegFood')}
-                  className="flex items-center justify-between gap-3 cursor-pointer select-none"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="w-4 h-4 border-2 border-[#315B42] rounded-sm flex items-center justify-center">
-                      <span className="w-2 h-2 rounded-full bg-[#315B42]" />
-                    </span>
-                    <h2 className="font-fraunces text-xl font-bold text-[#2C1E14]">
-                      Vegetarian Cuisine
-                    </h2>
-                  </div>
-                  <div className="flex-1 h-[1px] bg-[#E4D7C0] mx-3 hidden sm:block" />
-                  <span className="text-xs font-bold text-[#8A7662] shrink-0">
-                    {structuredSections.vegFood.length} dishes
-                  </span>
-                </div>
-
-                {!collapsedSections['vegFood'] && (
-                  <div className="divide-y divide-[#F1E8D8]">
-                    {structuredSections.vegFood.map((dish, i) => renderDishRow(dish, i))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* SECTION 1B: EGGETARIAN FOOD (Shown only if present) */}
-            {structuredSections.eggFood.length > 0 && (
-              <div className="bg-[#FFFDF9] border border-[#E0D1B8] rounded-3xl p-5 sm:p-7 shadow-warm-xs space-y-4">
-                <div
-                  onClick={() => toggleSection('eggFood')}
-                  className="flex items-center justify-between gap-3 cursor-pointer select-none"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="w-4 h-4 border-2 border-[#B45309] rounded-sm flex items-center justify-center">
-                      <span className="w-2 h-2 rounded-full bg-[#B45309]" />
-                    </span>
-                    <h2 className="font-fraunces text-xl font-bold text-[#2C1E14]">
-                      Eggetarian Delicacies
-                    </h2>
-                  </div>
-                  <div className="flex-1 h-[1px] bg-[#E4D7C0] mx-3 hidden sm:block" />
-                  <span className="text-xs font-bold text-[#8A7662] shrink-0">
-                    {structuredSections.eggFood.length} dishes
-                  </span>
-                </div>
-
-                {!collapsedSections['eggFood'] && (
-                  <div className="divide-y divide-[#F1E8D8]">
-                    {structuredSections.eggFood.map((dish, i) => renderDishRow(dish, i))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* SECTION 1C: NON-VEGETARIAN FOOD */}
-            {structuredSections.nonvegFood.length > 0 && (
-              <div className="bg-[#FFFDF9] border border-[#E0D1B8] rounded-3xl p-5 sm:p-7 shadow-warm-xs space-y-4">
-                <div
-                  onClick={() => toggleSection('nonvegFood')}
-                  className="flex items-center justify-between gap-3 cursor-pointer select-none"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="w-4 h-4 border-2 border-[#C2410C] rounded-sm flex items-center justify-center">
-                      <span className="w-2 h-2 rounded-full bg-[#C2410C]" />
-                    </span>
-                    <h2 className="font-fraunces text-xl font-bold text-[#2C1E14]">
-                      Non-Vegetarian & Mughlai
-                    </h2>
-                  </div>
-                  <div className="flex-1 h-[1px] bg-[#E4D7C0] mx-3 hidden sm:block" />
-                  <span className="text-xs font-bold text-[#8A7662] shrink-0">
-                    {structuredSections.nonvegFood.length} dishes
-                  </span>
-                </div>
-
-                {!collapsedSections['nonvegFood'] && (
-                  <div className="divide-y divide-[#F1E8D8]">
-                    {structuredSections.nonvegFood.map((dish, i) => renderDishRow(dish, i))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* SECTION 2: DESSERTS */}
-            {structuredSections.desserts.length > 0 && (
-              <div className="bg-[#FFFDF9] border border-[#E0D1B8] rounded-3xl p-5 sm:p-7 shadow-warm-xs space-y-4">
-                <div
-                  onClick={() => toggleSection('dessert')}
-                  className="flex items-center justify-between gap-3 cursor-pointer select-none"
-                >
-                  <h2 className="font-fraunces text-xl font-bold text-[#2C1E14]">
-                    Mithai, Sweets & Desserts
-                  </h2>
-                  <div className="flex-1 h-[1px] bg-[#E4D7C0] mx-3 hidden sm:block" />
-                  <span className="text-xs font-bold text-[#8A7662] shrink-0">
-                    {structuredSections.desserts.length} items
-                  </span>
-                </div>
-
-                {!collapsedSections['dessert'] && (
-                  <div className="divide-y divide-[#F1E8D8]">
-                    {structuredSections.desserts.map((dish, i) => renderDishRow(dish, i))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* SECTION 3: BEVERAGES (Shown once, not split by veg/non-veg) */}
-            {structuredSections.beverages.length > 0 && (
-              <div className="bg-[#FFFDF9] border border-[#E0D1B8] rounded-3xl p-5 sm:p-7 shadow-warm-xs space-y-4">
-                <div
-                  onClick={() => toggleSection('beverage')}
-                  className="flex items-center justify-between gap-3 cursor-pointer select-none"
-                >
-                  <h2 className="font-fraunces text-xl font-bold text-[#2C1E14]">
-                    Beverages & Coolers
-                  </h2>
-                  <div className="flex-1 h-[1px] bg-[#E4D7C0] mx-3 hidden sm:block" />
-                  <span className="text-xs font-bold text-[#8A7662] shrink-0">
-                    {structuredSections.beverages.length} items
-                  </span>
-                </div>
-
-                {!collapsedSections['beverage'] && (
-                  <div className="divide-y divide-[#F1E8D8]">
-                    {structuredSections.beverages.map((dish, i) => renderDishRow(dish, i))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {filteredDishes.length === 0 && (
+      {/* ========================================================================= */}
+      {/* VIEW A: ALL DISHES (Responsive 2/3-Column Card Grid — Clean & Uncluttered) */}
+      {/* ========================================================================= */}
+      {activeTab === 'dishes' && (
+        <>
+          {filteredDishes.length === 0 ? (
+            <div className="bg-white rounded-2xl p-8 border border-[#E0D1B8] text-center">
               <EmptyState
-                illustration={<MenuCardIllustration size={72} />}
+                illustration={<MenuCardIllustration size={64} />}
                 title="No dishes found"
-                description="Try clearing your category or food-type filters to view the full menu."
+                description="Try clearing your category or dietary filters to view the full menu."
                 actionLabel="Reset Filters"
                 onAction={() => {
-                  setFoodTypeFilter('all');
                   setSelectedCategory('All');
+                  setFoodTypeFilter('all');
                   setSearchQuery('');
                 }}
               />
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* VIEW 2: ALL INGREDIENTS (Merged Consolidated View) */}
-      {activeView === 'ingredients' && (
-        <div className="space-y-5">
-          <div className="bg-[#FFFDF9] border border-[#E0D1B8] rounded-3xl p-5 sm:p-7 shadow-warm-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E4D7C0] pb-4">
-              <div>
-                <h3 className="text-lg font-bold text-[#2C1E14] font-outfit">
-                  Master Ingredient Ledger
-                </h3>
-                <p className="text-xs text-[#66523B]">
-                  Consolidated monthly demand across all recipes and cheapest mandi rates
-                </p>
-              </div>
-
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => router.push('/app/suppliers')}
-                leftIcon={<Store className="w-4 h-4 text-[#2C1E14]" />}
-              >
-                Find Cheapest Suppliers &rarr;
-              </Button>
             </div>
-
-            {/* Ingredient Cards Grid */}
+          ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {ingredients.map((ing) => {
-                const numDishesUsing = dishes.filter((d) =>
-                  d.ingredients.some((di) => di.ingredientId === ing.id || di.ingredientName.toLowerCase().includes(ing.name.toLowerCase()))
-                ).length;
+              {filteredDishes.map((dish) => {
+                const ft = dish.foodType || (dish.isVeg ? 'veg' : 'nonveg');
 
                 return (
                   <div
-                    key={ing.id}
-                    className="p-4 rounded-2xl bg-[#FFF9EF] border border-[#E4D7C0] hover:border-[#F8C45C] transition-all space-y-3 flex flex-col justify-between"
+                    key={dish.id}
+                    onClick={() => setSelectedDishForDrawer(dish)}
+                    className="bg-white border border-[#E4D7C0] rounded-xl hover:border-[#F8C45C] hover:shadow-warm-sm transition-all cursor-pointer group flex flex-col justify-between overflow-hidden"
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-white border border-[#E4D7C0] flex items-center justify-center shrink-0">
-                        {getIngredientIllustration(ing.name, ing.category, 28)}
+                    {/* Dish Image + Badge Overlay */}
+                    <div className="relative h-36 w-full bg-[#F1E8D8] overflow-hidden">
+                      <Image
+                        src={dish.image}
+                        alt={dish.name}
+                        fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80" />
+
+                      {/* Top Badges */}
+                      <div className="absolute top-2 left-2 flex items-center gap-1.5">
+                        {/* Food Classification Mark */}
+                        <span
+                          className={`w-4 h-4 rounded-sm flex items-center justify-center bg-white shadow-xs ${
+                            ft === 'veg'
+                              ? 'border-2 border-[#166534]'
+                              : ft === 'egg'
+                              ? 'border-2 border-[#B45309]'
+                              : 'border-2 border-[#991B1B]'
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              ft === 'veg'
+                                ? 'bg-[#166534]'
+                                : ft === 'egg'
+                                ? 'bg-[#B45309]'
+                                : 'bg-[#991B1B]'
+                            }`}
+                          />
+                        </span>
+
+                        {dish.tags?.includes('bestseller') && (
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-white bg-[#1E3A8A]/90 px-1.5 py-0.5 rounded shadow-xs">
+                            Bestseller
+                          </span>
+                        )}
+                        {dish.tags?.includes('jain') && (
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-900 bg-emerald-100 px-1.5 py-0.5 rounded shadow-xs">
+                            Jain
+                          </span>
+                        )}
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <h4 className="font-bold text-sm text-[#2C1E14] truncate">{ing.name}</h4>
-                        <span className="text-[10px] text-[#8A7662] block truncate">{ing.category}</span>
+
+                      {/* Selling Price overlay bottom right */}
+                      <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-lg bg-[#263D2D]/90 backdrop-blur-xs text-white font-mono font-bold text-sm shadow-xs">
+                        {formatCurrency(dish.price)}
                       </div>
                     </div>
 
-                    <div className="space-y-1 text-xs text-[#66523B] border-t border-[#E4D7C0]/60 pt-2">
-                      <div className="flex justify-between">
-                        <span>Used In:</span>
-                        <strong className="text-[#2C1E14]">{numDishesUsing || 3} recipes</strong>
+                    {/* Card Content */}
+                    <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2">
+                      <div>
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="font-fraunces font-bold text-sm text-[#2C1E14] group-hover:text-[#315B42] transition-colors leading-snug">
+                            {dish.name}
+                          </h3>
+                        </div>
+                        <p className="text-[11px] text-[#66523B] line-clamp-2 mt-1 leading-relaxed">
+                          {dish.description || 'Delicious freshly prepared authentic recipe.'}
+                        </p>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Monthly Need:</span>
-                        <strong className="text-[#2C1E14] font-mono">{ing.monthlyUsageQuantity} {ing.standardUnit}</strong>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Best Mandi Rate:</span>
-                        <strong className="text-[#315B42] font-mono font-bold">₹{ing.bestCityPrice}/{ing.standardUnit}</strong>
+
+                      {/* Card Meta Footer (Ingredients Count, Volume, Edit Action) */}
+                      <div className="pt-2 border-t border-[#F1E8D8] flex items-center justify-between text-[11px]">
+                        <div className="flex items-center gap-1.5">
+                          <span className="px-2 py-0.5 rounded bg-[#EAF3ED] text-[#315B42] font-semibold">
+                            {dish.ingredients.length} ingredients
+                          </span>
+                          <span className="text-[#8A7662]">
+                            {dish.portionsSoldPerMonth} sold/mo
+                          </span>
+                        </div>
+
+                        {/* Quick Edit button */}
+                        <button
+                          type="button"
+                          onClick={(e) => handleOpenEditModal(dish, e)}
+                          className="w-6 h-6 rounded-md hover:bg-[#F1E8D8] text-[#8A7662] hover:text-[#2C1E14] flex items-center justify-center transition-colors"
+                          title="Edit Dish Info"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
                       </div>
                     </div>
-
-                    <button
-                      onClick={() => router.push(`/app/suppliers`)}
-                      className="w-full py-1.5 rounded-xl bg-white border border-[#E4D7C0] hover:bg-[#F9F5EC] text-xs font-semibold text-[#2C1E14] transition-colors"
-                    >
-                      Compare Vendors
-                    </button>
                   </div>
                 );
               })}
             </div>
+          )}
+        </>
+      )}
+
+      {/* ========================================================================= */}
+      {/* VIEW B: ALL INGREDIENTS (Consolidated Master Ingredient Ledger) */}
+      {/* ========================================================================= */}
+      {activeTab === 'ingredients' && (
+        <div className="bg-white border border-[#E0D1B8] rounded-2xl p-4 sm:p-5 shadow-warm-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#F1E8D8] pb-3">
+            <div>
+              <h2 className="text-base font-bold text-[#2C1E14] font-fraunces">
+                Master Kitchen Ingredient Ledger
+              </h2>
+              <p className="text-xs text-[#66523B]">
+                Consolidated demand and lowest mandi prices across {ingredients.length} tracked commodities.
+              </p>
+            </div>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => router.push('/app/suppliers')}
+              leftIcon={<Store className="w-3.5 h-3.5" />}
+              className="text-xs"
+            >
+              Compare Wholesale Suppliers &rarr;
+            </Button>
+          </div>
+
+          {/* Clean Ingredient Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {ingredients.map((ing) => {
+              const usedInRecipes = dishes.filter((d) =>
+                d.ingredients.some(
+                  (di) =>
+                    di.ingredientId === ing.id ||
+                    di.ingredientName.toLowerCase().includes(ing.name.toLowerCase())
+                )
+              ).length;
+
+              return (
+                <div
+                  key={ing.id}
+                  className="p-3 rounded-xl bg-[#FFF9EF] border border-[#E4D7C0] hover:border-[#F8C45C] transition-all flex flex-col justify-between space-y-2.5"
+                >
+                  <div className="flex items-start gap-2.5">
+                    <div className="w-9 h-9 rounded-lg bg-white border border-[#E4D7C0] flex items-center justify-center shrink-0">
+                      {getIngredientIllustration(ing.name, ing.category, 22)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="font-bold text-xs text-[#2C1E14] truncate">{ing.name}</h4>
+                      <span className="text-[10px] text-[#8A7662] block truncate">
+                        {ing.category} &bull; Used in {usedInRecipes || 2} recipes
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="text-xs space-y-1 border-t border-[#E4D7C0]/60 pt-2 text-[#66523B]">
+                    <div className="flex justify-between text-[11px]">
+                      <span>Monthly Demand:</span>
+                      <span className="font-mono font-bold text-[#2C1E14]">
+                        {ing.monthlyUsageQuantity} {ing.standardUnit}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-[11px]">
+                      <span>Best Mandi Rate:</span>
+                      <span className="font-mono font-bold text-[#315B42]">
+                        ₹{ing.bestCityPrice}/{ing.standardUnit}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => router.push('/app/suppliers')}
+                    className="w-full py-1 rounded-lg bg-white border border-[#E4D7C0] hover:bg-[#F9F5EC] text-xs font-semibold text-[#2C1E14] transition-colors"
+                  >
+                    View Mandi Suppliers
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* VIEW 3: UPLOAD WORKSPACE */}
-      {activeView === 'upload' && (
-        <div className="bg-[#FFFDF9] border-2 border-dashed border-[#E0D1B8] hover:border-[#F8C45C] rounded-3xl p-6 sm:p-10 text-center transition-all shadow-warm-xs relative my-2">
-          {isParsing ? (
-            <div className="py-6 space-y-4 max-w-md mx-auto">
-              <Mascot role="assistant" expression="thinking" size={60} />
-              <h4 className="text-lg font-bold text-[#2C1E14]">AI Agent Parsing Menu Items...</h4>
-              <p className="text-xs text-[#8A7662]">
-                Extracting item names, portion weights, category tags, and ingredient associations.
-              </p>
-              <div className="w-full bg-[#F1E8D8] h-2.5 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[#315B42] transition-all duration-300 rounded-full"
-                  style={{ width: `${parsingProgress}%` }}
-                />
-              </div>
-              <span className="text-xs font-mono font-bold text-[#315B42]">{parsingProgress}% complete</span>
-            </div>
-          ) : (
-            <div className="space-y-4 max-w-lg mx-auto">
-              <div className="w-14 h-14 rounded-full bg-[#FEF6E4] border border-[#F8C45C]/50 flex items-center justify-center text-[#8C5D08] mx-auto shadow-warm-xs">
-                <UploadCloud className="w-7 h-7" />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-[#2C1E14]">Upload Menu (PDF / Image / Excel)</h3>
-                <p className="text-xs text-[#8A7662] mt-1">
-                  Accepts printed menu photos, spreadsheets (XLSX, CSV), or high-res PDFs.
-                </p>
-              </div>
+      {/* ========================================================================= */}
+      {/* 4. RIGHT-SIDE INGREDIENT RECIPE DRAWER (Opened on clicking any Dish card) */}
+      {/* ========================================================================= */}
+      <AnimatePresence>
+        {activeDrawerDish && (
+          <div className="fixed inset-0 z-50 flex justify-end p-2 sm:p-3 pointer-events-none">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setSelectedDishForDrawer(null);
+                setIsAddingIngredient(false);
+              }}
+              className="fixed inset-0 bg-black/40 backdrop-blur-xs pointer-events-auto"
+            />
 
-              <div className="flex flex-wrap items-center justify-center gap-2.5 pt-2">
-                <label className="cursor-pointer px-4 py-2.5 rounded-xl bg-[#263D2D] hover:bg-[#1C2E22] text-white text-xs font-bold transition-all shadow-warm-xs min-h-[44px] flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-[#F8C45C]" />
-                  <span>Browse Computer Files</span>
-                  <input
-                    type="file"
-                    accept=".pdf,.png,.jpg,.jpeg,.xlsx,.csv"
-                    className="hidden"
-                    onChange={() => {
-                      setIsParsing(true);
-                      setTimeout(() => {
-                        setIsParsing(false);
-                        setActiveView('dishes');
-                      }, 1800);
-                    }}
-                  />
-                </label>
+            {/* Slide-in Drawer */}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+              className="relative z-10 w-full sm:w-[390px] bg-white max-h-[calc(100vh-24px)] my-auto rounded-2xl shadow-2xl flex flex-col border border-[#E4D7C0] overflow-hidden pointer-events-auto"
+            >
+              {/* Drawer Sticky Header */}
+              <div className="p-3 px-3.5 border-b border-[#F1E8D8] bg-[#FFF9EF] flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-lg overflow-hidden relative shrink-0 border border-[#E4D7C0]">
+                    <Image
+                      src={activeDrawerDish.image}
+                      alt={activeDrawerDish.name}
+                      fill
+                      sizes="36px"
+                      className="object-cover"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="font-fraunces font-bold text-xs sm:text-sm text-[#2C1E14] truncate">
+                      {activeDrawerDish.name}
+                    </h3>
+                    <span className="text-[10px] text-[#8A7662]">
+                      {activeDrawerDish.category} &bull; Selling at {formatCurrency(activeDrawerDish.price)}
+                    </span>
+                  </div>
+                </div>
 
                 <button
                   type="button"
                   onClick={() => {
-                    setIsParsing(true);
-                    setTimeout(() => {
-                      setIsParsing(false);
-                      setActiveView('dishes');
-                    }, 1800);
+                    setSelectedDishForDrawer(null);
+                    setIsAddingIngredient(false);
                   }}
-                  className="px-4 py-2.5 rounded-xl border border-[#F8C45C] bg-[#FEF6E4] hover:bg-[#FDE9BE] text-[#8C5D08] text-xs font-bold transition-all min-h-[44px] flex items-center gap-1.5"
+                  className="w-7 h-7 rounded-full bg-[#F1E8D8] hover:bg-[#E2D5BF] flex items-center justify-center text-[#66523B]"
                 >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Parse Sample Menu</span>
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
-            </div>
-          )}
-        </div>
-      )}
 
-      {/* 3. STICKY PAGE ACTION BAR (96px right padding reserved) */}
-      <div className="fixed bottom-20 lg:bottom-4 left-0 lg:left-[264px] right-0 z-30 pointer-events-none flex justify-center px-4">
-        <div className="pointer-events-auto max-w-[760px] w-full bg-[#FFFDF9]/95 backdrop-blur-md border border-[#F8C45C] rounded-full shadow-warm-lg p-2.5 sm:p-3 pr-4 sm:pr-24 lg:pr-28 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-full bg-[#263D2D] text-white flex items-center justify-center text-xs font-black shrink-0">
-              {activeView === 'ingredients' ? ingredients.length : dishes.length}
-            </div>
-            <div className="truncate">
-              <span className="text-xs sm:text-sm font-bold text-[#263D2D] block leading-tight truncate">
-                {activeView === 'ingredients'
-                  ? `${ingredients.length} Commodities Mapped to Mandis`
-                  : `${dishes.length} Dishes Ready for AI Sourcing`}
-              </span>
-              <span className="text-[11px] text-[#8A7662] hidden sm:block">
-                Direct mandi price matching across Delhi APMC
-              </span>
-            </div>
-          </div>
+              {/* Drawer Scrollable Body: Recipe Ingredients */}
+              <div className="p-3 overflow-y-auto flex-1 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#2C1E14]">
+                      Recipe Ingredients ({activeDrawerDish.ingredients.length})
+                    </h4>
+                    <p className="text-[10px] text-[#8A7662]">
+                      Formula per portion & monthly kitchen procurement need
+                    </p>
+                  </div>
 
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => {
-              if (activeView === 'ingredients') router.push('/app/suppliers');
-              else router.push('/app/processing');
-            }}
-            rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
-            className="shrink-0 font-bold"
-          >
-            {activeView === 'ingredients' ? 'Find Cheapest Suppliers' : 'Analyse with AI'}
-          </Button>
-        </div>
-      </div>
-
-      {/* 4. UPGRADED ADD / EDIT DISH MODAL (2-column desktop, bottom sheet mobile, locked with useScrollLock) */}
-      {drawerOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div onClick={() => setDrawerOpen(false)} className="fixed inset-0 bg-[#2C1E14]/50 backdrop-blur-sm" />
-
-          <div className="relative z-10 w-full sm:max-w-2xl bg-white border border-[#E4D7C0] rounded-t-[28px] sm:rounded-3xl shadow-warm-xl flex flex-col max-h-[90dvh] overflow-hidden">
-            {/* Sticky Header */}
-            <div className="p-4 sm:p-5 border-b border-[#F1E8D8] flex items-center justify-between bg-white shrink-0">
-              <h3 className="text-lg font-bold text-[#2C1E14]">
-                {editingDish ? 'Edit Dish & Recipe' : 'Add New Restaurant Dish'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setDrawerOpen(false)}
-                className="w-8 h-8 rounded-full bg-[#F1E8D8] flex items-center justify-center text-[#66523B]"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Scrollable Body Only */}
-            <form id="dish-form" onSubmit={handleSaveDish} className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-4 text-xs">
-              {formError && (
-                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{formError}</span>
+                  {!isAddingIngredient && (
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingIngredient(true)}
+                      className="px-2 py-1 rounded-md bg-[#263D2D] text-white text-[10px] font-bold hover:bg-[#315B42] flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" /> Add Ingredient
+                    </button>
+                  )}
                 </div>
-              )}
 
-              <Input
-                label="Dish Name"
-                required
-                placeholder="e.g. Paneer Butter Masala"
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-              />
-
-              {/* 2-Column Grid for Category, Group, Subcategory */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Select
-                  label="Menu Group"
-                  value={formGroup}
-                  onChange={(e) => setFormGroup(e.target.value as MenuGroup)}
-                  options={[
-                    { label: 'Food', value: 'food' },
-                    { label: 'Dessert', value: 'dessert' },
-                    { label: 'Beverage', value: 'beverage' },
-                  ]}
-                />
-
-                <Select
-                  label="Category"
-                  value={formCategory}
-                  onChange={(e) => setFormCategory(e.target.value)}
-                  options={MENU_CATEGORIES_TREE.filter((c) => c.group === formGroup).map((c) => ({
-                    label: c.name,
-                    value: c.name,
-                  }))}
-                />
-
-                <Input
-                  label="Subcategory"
-                  placeholder="e.g. Tandoor & Kebabs"
-                  value={formSubcategory}
-                  onChange={(e) => setFormSubcategory(e.target.value)}
-                />
-              </div>
-
-              {/* 3-way Food Type Selector: Veg | Egg | Non-Veg */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#8A7662] mb-1.5">
-                  Food Classification (Indian Standard)
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormFoodType('veg');
-                      setFormError(null);
-                    }}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold border flex items-center justify-center gap-2 min-h-[44px] ${
-                      formFoodType === 'veg'
-                        ? 'bg-[#EAF3ED] border-[#315B42] text-[#315B42]'
-                        : 'bg-white border-[#E4D7C0] text-[#8A7662]'
-                    }`}
+                {/* Add Ingredient Form Inside Drawer */}
+                {isAddingIngredient && (
+                  <form
+                    onSubmit={handleAddIngredientToDish}
+                    className="p-2.5 bg-[#FFF9EF] border border-[#F8C45C] rounded-xl space-y-2 text-xs"
                   >
-                    <span className="w-3.5 h-3.5 border-2 border-[#315B42] rounded-sm flex items-center justify-center">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#315B42]" />
+                    <span className="font-bold text-[#2C1E14] block text-[11px]">
+                      Add Commodity to Recipe
                     </span>
-                    <span>Veg</span>
-                  </button>
+                    <select
+                      value={selectedIngredientToAdd}
+                      onChange={(e) => setSelectedIngredientToAdd(e.target.value)}
+                      className="w-full bg-white border border-[#E4D7C0] rounded-lg p-1.5 text-xs text-[#2C1E14]"
+                    >
+                      {ingredients.map((ing) => (
+                        <option key={ing.id} value={ing.id}>
+                          {ing.name} ({ing.standardUnit})
+                        </option>
+                      ))}
+                    </select>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormFoodType('egg');
-                      setFormTags(formTags.filter((t) => t !== 'jain'));
-                    }}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold border flex items-center justify-center gap-2 min-h-[44px] ${
-                      formFoodType === 'egg'
-                        ? 'bg-[#FEF3C7] border-[#B45309] text-[#B45309]'
-                        : 'bg-white border-[#E4D7C0] text-[#8A7662]'
-                    }`}
-                  >
-                    <span className="w-3.5 h-3.5 border-2 border-[#B45309] rounded-sm flex items-center justify-center">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#B45309]" />
-                    </span>
-                    <span>Egg</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormFoodType('nonveg');
-                      setFormTags(formTags.filter((t) => t !== 'jain'));
-                    }}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold border flex items-center justify-center gap-2 min-h-[44px] ${
-                      formFoodType === 'nonveg'
-                        ? 'bg-[#FEE2E2] border-[#C2410C] text-[#C2410C]'
-                        : 'bg-white border-[#E4D7C0] text-[#8A7662]'
-                    }`}
-                  >
-                    <span className="w-3.5 h-3.5 border-2 border-[#C2410C] rounded-sm flex items-center justify-center">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#C2410C]" />
-                    </span>
-                    <span>Non-Veg</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Tag Toggles */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#8A7662] mb-1.5">
-                  Special Badges & Dietary Tags
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { id: 'jain', label: 'Jain (No Root Veg)' },
-                    { id: 'vegan', label: 'Vegan' },
-                    { id: 'glutenFree', label: 'Gluten Free' },
-                    { id: 'chefSpecial', label: "Chef's Special" },
-                    { id: 'bestseller', label: 'Bestseller' },
-                    { id: 'seasonal', label: 'Seasonal' },
-                  ].map((tag) => {
-                    const isSelected = formTags.includes(tag.id as DishTag);
-                    return (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Qty per portion"
+                        value={newIngredientQty}
+                        onChange={(e) => setNewIngredientQty(e.target.value)}
+                        className="w-24 bg-white border border-[#E4D7C0] rounded-lg p-1.5 text-xs text-[#2C1E14]"
+                      />
                       <button
-                        key={tag.id}
-                        type="button"
-                        onClick={() => {
-                          if (tag.id === 'jain' && (formFoodType === 'egg' || formFoodType === 'nonveg')) {
-                            setFormError('Cannot mark non-veg or egg dishes as Jain.');
-                            return;
-                          }
-                          setFormTags(
-                            isSelected ? formTags.filter((t) => t !== tag.id) : [...formTags, tag.id as DishTag]
-                          );
-                        }}
-                        className={`px-3 py-1.5 rounded-xl border font-semibold text-xs transition-colors ${
-                          isSelected
-                            ? 'bg-[#263D2D] text-white border-[#263D2D]'
-                            : 'bg-white text-[#66523B] border-[#E4D7C0]'
-                        }`}
+                        type="submit"
+                        className="flex-1 py-1.5 bg-[#315B42] text-white text-xs font-bold rounded-lg"
                       >
-                        {tag.label}
+                        Add to Dish
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingIngredient(false)}
+                        className="px-2 py-1.5 text-xs text-[#66523B]"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Ingredients List */}
+                <div className="divide-y divide-[#F1E8D8] border border-[#E4D7C0] rounded-xl overflow-hidden bg-[#FFFDF9]">
+                  {activeDrawerDish.ingredients.map((ing, idx) => {
+                    const monthlyUsage = Math.round(
+                      ing.quantityPerPortion * (activeDrawerDish.portionsSoldPerMonth || 200) * 10
+                    ) / 10;
+
+                    return (
+                      <div key={idx} className="p-2 px-2.5 flex items-center justify-between gap-2.5 text-xs">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-6 h-6 rounded-md bg-white border border-[#E4D7C0] flex items-center justify-center shrink-0">
+                            {getIngredientIllustration(ing.ingredientName, '', 16)}
+                          </div>
+                          <div className="min-w-0">
+                            <span className="font-bold text-[#2C1E14] block truncate text-[11px]">
+                              {ing.ingredientName}
+                            </span>
+                            <span className="text-[9px] text-[#8A7662]">
+                              Monthly: {monthlyUsage} {ing.unit}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Quantity Stepper & Remove */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="flex items-center border border-[#E4D7C0] rounded-md bg-white">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newQty = Math.max(0.01, Math.round((ing.quantityPerPortion - 0.02) * 100) / 100);
+                                updateDishIngredientQuantity(activeDrawerDish.id, ing.ingredientId, newQty);
+                              }}
+                              className="px-1.5 py-0.5 text-[#66523B] hover:text-[#2C1E14] text-[11px]"
+                            >
+                              -
+                            </button>
+                            <span className="px-1.5 font-mono text-[10px] font-semibold text-[#2C1E14]">
+                              {ing.quantityPerPortion} {ing.unit}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newQty = Math.round((ing.quantityPerPortion + 0.02) * 100) / 100;
+                                updateDishIngredientQuantity(activeDrawerDish.id, ing.ingredientId, newQty);
+                              }}
+                              className="px-1.5 py-0.5 text-[#66523B] hover:text-[#2C1E14] text-[11px]"
+                            >
+                              +
+                            </button>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => removeDishIngredient(activeDrawerDish.id, ing.ingredientId)}
+                            className="w-5 h-5 rounded hover:bg-[#FEE2E2] text-[#C2410C] flex items-center justify-center"
+                            title="Remove ingredient"
+                          >
+                            <Trash2 className="w-2.5 h-2.5" />
+                          </button>
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
+
+                {/* Recipe Cost Summary */}
+                <div className="p-2.5 bg-[#EAF3ED] border border-[#315B42]/20 rounded-xl space-y-1 text-xs">
+                  <div className="flex justify-between font-semibold text-[#1D432B] text-[11px]">
+                    <span>Monthly Portions Sold:</span>
+                    <span className="font-mono">{activeDrawerDish.portionsSoldPerMonth} portions</span>
+                  </div>
+                  <div className="flex justify-between font-semibold text-[#1D432B] text-[11px]">
+                    <span>Recipe Food Cost Est:</span>
+                    <span className="font-mono font-bold text-[#315B42]">
+                      ~29% of selling price
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              {/* Price & Monthly portions */}
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  label="Selling Price (₹)"
-                  type="number"
+              {/* Drawer Footer Actions */}
+              <div className="p-2.5 px-3 border-t border-[#F1E8D8] bg-[#FFF9EF] flex items-center justify-between gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleOpenEditModal(activeDrawerDish);
+                    setSelectedDishForDrawer(null);
+                  }}
+                  className="px-3 py-1.5 rounded-lg border border-[#E4D7C0] bg-white text-xs font-semibold text-[#2C1E14] hover:bg-[#F9F5EC]"
+                >
+                  Edit Dish Details
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDishForDrawer(null)}
+                  className="px-4 py-1.5 rounded-lg bg-[#263D2D] text-white text-xs font-bold hover:bg-[#315B42]"
+                >
+                  Done
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ========================================================================= */}
+      {/* 5. ADD / EDIT DISH MODAL */}
+      {/* ========================================================================= */}
+      {addDishModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
+          <div onClick={() => setAddDishModalOpen(false)} className="fixed inset-0 bg-black/40 backdrop-blur-xs" />
+
+          <div className="relative z-10 w-full sm:max-w-lg bg-white border border-[#E4D7C0] rounded-2xl shadow-warm-xl flex flex-col max-h-[90dvh] overflow-hidden">
+            {/* Header */}
+            <div className="p-3.5 border-b border-[#F1E8D8] flex items-center justify-between bg-white shrink-0">
+              <h3 className="text-sm sm:text-base font-bold text-[#2C1E14]">
+                {editingDish ? 'Edit Dish Recipe' : 'Add New Restaurant Dish'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setAddDishModalOpen(false)}
+                className="w-7 h-7 rounded-full bg-[#F1E8D8] flex items-center justify-center text-[#66523B]"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Form Body */}
+            <form id="dish-form" onSubmit={handleSaveDish} className="p-4 overflow-y-auto space-y-3 text-xs">
+              <div>
+                <label className="block text-[11px] font-bold text-[#66523B] mb-1">Dish Name *</label>
+                <input
+                  type="text"
                   required
-                  placeholder="385"
-                  value={formPrice}
-                  onChange={(e) => setFormPrice(e.target.value)}
-                />
-
-                <Input
-                  label="Monthly Portions Sold"
-                  type="number"
-                  placeholder="400"
-                  value={formPortions}
-                  onChange={(e) => setFormPortions(e.target.value)}
+                  placeholder="e.g. Paneer Butter Masala"
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  className="w-full p-2 border border-[#E4D7C0] rounded-lg text-xs"
                 />
               </div>
 
-              <Input
-                label="Description & Recipe Notes"
-                placeholder="e.g. Marinated cottage cheese in satin gravy"
-                value={formDescription}
-                onChange={(e) => setFormDescription(e.target.value)}
-              />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-[#66523B] mb-1">Category</label>
+                  <select
+                    value={formCategory}
+                    onChange={(e) => setFormCategory(e.target.value)}
+                    className="w-full p-2 border border-[#E4D7C0] rounded-lg text-xs"
+                  >
+                    <option value="Starters">Starters</option>
+                    <option value="Main Course">Main Course</option>
+                    <option value="Rice & Biryani">Rice & Biryani</option>
+                    <option value="Indian Breads">Indian Breads</option>
+                    <option value="Desserts">Desserts</option>
+                    <option value="Beverages">Beverages</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-[#66523B] mb-1">Classification</label>
+                  <select
+                    value={formFoodType}
+                    onChange={(e) => setFormFoodType(e.target.value as FoodType)}
+                    className="w-full p-2 border border-[#E4D7C0] rounded-lg text-xs"
+                  >
+                    <option value="veg">Vegetarian</option>
+                    <option value="egg">Egg</option>
+                    <option value="nonveg">Non-Veg</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-[#66523B] mb-1">Price (₹) *</label>
+                  <input
+                    type="number"
+                    required
+                    value={formPrice}
+                    onChange={(e) => setFormPrice(e.target.value)}
+                    className="w-full p-2 border border-[#E4D7C0] rounded-lg text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-[#66523B] mb-1">Monthly Portions</label>
+                  <input
+                    type="number"
+                    value={formPortions}
+                    onChange={(e) => setFormPortions(e.target.value)}
+                    className="w-full p-2 border border-[#E4D7C0] rounded-lg text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-[#66523B] mb-1">Description</label>
+                <textarea
+                  rows={2}
+                  placeholder="Short description for guests and kitchen notes..."
+                  value={formDescription}
+                  onChange={(e) => setFormDescription(e.target.value)}
+                  className="w-full p-2 border border-[#E4D7C0] rounded-lg text-xs"
+                />
+              </div>
             </form>
 
-            {/* Sticky Footer */}
-            <div className="p-4 border-t border-[#F1E8D8] bg-[#FFFDF9] flex items-center justify-end gap-3 shrink-0">
-              <Button variant="ghost" size="md" type="button" onClick={() => setDrawerOpen(false)}>
+            {/* Footer */}
+            <div className="p-3 border-t border-[#F1E8D8] bg-[#FFF9EF] flex items-center justify-end gap-2 shrink-0">
+              <Button variant="ghost" size="sm" type="button" onClick={() => setAddDishModalOpen(false)}>
                 Cancel
               </Button>
-              <Button variant="primary" size="md" type="submit" form="dish-form">
-                {editingDish ? 'Save Changes' : 'Add Dish to Menu'}
+              <Button variant="primary" size="sm" type="submit" form="dish-form">
+                {editingDish ? 'Save Changes' : 'Add Dish'}
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 6. DEDICATED MENU UPLOAD MODAL */}
+      {/* ========================================================================= */}
+      {uploadModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
+          <div
+            onClick={() => !isParsing && setUploadModalOpen(false)}
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs"
+          />
+
+          <div className="relative z-10 w-full sm:max-w-md bg-white border border-[#E4D7C0] rounded-2xl shadow-warm-xl flex flex-col max-h-[90dvh] overflow-hidden">
+            <div className="p-3.5 border-b border-[#F1E8D8] flex items-center justify-between bg-white shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-[#EAF3ED] border border-[#315B42]/20 flex items-center justify-center text-[#1D432B]">
+                  <UploadCloud className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#2C1E14]">Upload Menu</h3>
+                  <p className="text-[10px] text-[#8A7662]">AI extraction for PDF, photo, Excel or CSV</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isParsing}
+                onClick={() => setUploadModalOpen(false)}
+                className="w-7 h-7 rounded-full bg-[#F1E8D8] flex items-center justify-center text-[#66523B]"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto space-y-3">
+              {isParsing ? (
+                <div className="py-6 space-y-3 text-center">
+                  <Mascot role="assistant" expression="thinking" size={40} />
+                  <div>
+                    <h4 className="text-sm font-bold text-[#2C1E14]">Extracting Recipes & Ingredients...</h4>
+                    <p className="text-[11px] text-[#8A7662] mt-0.5">
+                      Matching dishes to wholesale mandi commodities
+                    </p>
+                  </div>
+                  <div className="w-full bg-[#F1E8D8] h-2 rounded-full overflow-hidden max-w-xs mx-auto">
+                    <div
+                      className="h-full bg-[#315B42] transition-all duration-300 rounded-full"
+                      style={{ width: `${parsingProgress}%` }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <label className="border-2 border-dashed border-[#E0D1B8] hover:border-[#315B42] rounded-xl p-6 text-center cursor-pointer transition-all bg-[#FFFDF9] hover:bg-[#F9F5EC] flex flex-col items-center justify-center gap-2 group block">
+                    <FileText className="w-6 h-6 text-[#8C5D08]" />
+                    <span className="text-xs font-bold text-[#2C1E14]">Choose menu file or drag here</span>
+                    <span className="text-[10px] text-[#8A7662]">PDF, JPG/PNG photo, or Excel (.xlsx)</span>
+                    <span className="px-3 py-1 rounded bg-[#263D2D] text-white text-[11px] font-semibold mt-1">
+                      Browse Files
+                    </span>
+                    <input
+                      type="file"
+                      accept=".pdf,.png,.jpg,.jpeg,.xlsx,.csv"
+                      className="hidden"
+                      onChange={() => {
+                        setIsParsing(true);
+                        setParsingProgress(30);
+                        setTimeout(() => setParsingProgress(70), 500);
+                        setTimeout(() => setParsingProgress(100), 1000);
+                        setTimeout(() => {
+                          setIsParsing(false);
+                          setUploadModalOpen(false);
+                        }, 1300);
+                      }}
+                    />
+                  </label>
+
+                  <div className="bg-[#FFF9EF] border border-[#E4D7C0] rounded-xl p-2.5 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-[#8C5D08]" />
+                      <span className="text-xs font-semibold text-[#2C1E14]">
+                        Or parse sample bistro menu (Instant demo)
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsParsing(true);
+                        setParsingProgress(40);
+                        setTimeout(() => setParsingProgress(80), 500);
+                        setTimeout(() => setParsingProgress(100), 900);
+                        setTimeout(() => {
+                          setIsParsing(false);
+                          setUploadModalOpen(false);
+                        }, 1200);
+                      }}
+                      className="px-2.5 py-1 rounded bg-[#FEF6E4] border border-[#F8C45C] text-[#8C5D08] text-[11px] font-bold"
+                    >
+                      Parse Demo
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1215,7 +1165,7 @@ function MenuManagementContent() {
 
 export default function MenuManagementPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-xs text-[#66523B]">Loading Menu & Ingredients Ledger...</div>}>
+    <Suspense fallback={<div className="p-8 text-center text-xs text-[#66523B]">Loading Menu...</div>}>
       <MenuManagementContent />
     </Suspense>
   );

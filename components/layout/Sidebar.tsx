@@ -13,6 +13,7 @@ import {
   ShoppingBag,
   Sparkles,
   Settings,
+  Percent,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { HeroAvatarIllustration } from '@/components/illustrations';
@@ -32,6 +33,7 @@ export const NAV_ITEMS: NavItem[] = [
   { name: 'Find Suppliers', href: '/app/suppliers', icon: Store },
   { name: 'City Prices', href: '/app/city-prices', icon: TrendingDown },
   { name: 'Savings', href: '/app/savings', icon: PiggyBank },
+  { name: 'Menu Profitability', href: '/app/profitability', icon: Percent },
   { name: 'Shopping List', href: '/app/shopping-list', icon: ShoppingBag },
   { name: 'AI Assistant', href: '/app/assistant', icon: Sparkles },
   { name: 'Settings', href: '/app/settings', icon: Settings },
@@ -44,11 +46,11 @@ export function Sidebar() {
   const currentRestaurant = isHydrated ? getCurrentRestaurant() : null;
 
   return (
-    <aside className="hidden lg:flex fixed top-0 left-0 h-[100dvh] w-[264px] flex-col overflow-hidden bg-[#FFF9EF] border-r border-[#E4D7C0] select-none z-30 justify-between">
-      {/* 1. Logo block (~72px compact) */}
-      <div className="h-[72px] px-5 flex items-center border-b border-[#E4D7C0]/80 shrink-0">
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-9 h-9 rounded-full border border-[#66523B]/30 flex items-center justify-center p-1.5 bg-white transition-transform group-hover:scale-105 shadow-warm-xs">
+    <aside className="hidden lg:flex fixed top-0 left-0 h-[100dvh] w-[216px] flex-col overflow-hidden bg-[#FFF9EF] border-r border-[#E4D7C0] select-none z-30 justify-between">
+      {/* 1. Logo block (~52px compact) */}
+      <div className="h-[52px] px-4 flex items-center border-b border-[#E4D7C0]/80 shrink-0">
+        <Link href="/" className="flex items-center gap-2 group">
+          <div className="w-7 h-7 rounded-full border border-[#66523B]/30 flex items-center justify-center p-1 bg-white transition-transform group-hover:scale-105 shadow-warm-xs">
             <svg
               viewBox="0 0 32 32"
               fill="none"
@@ -65,18 +67,18 @@ export function Sidebar() {
             </svg>
           </div>
           <div className="flex flex-col leading-none">
-            <span className="text-[13px] font-black tracking-widest text-[#2C1E14] uppercase font-sans">
+            <span className="text-[11px] font-black tracking-widest text-[#2C1E14] uppercase font-sans">
               FOOD
             </span>
-            <span className="text-[11px] font-bold tracking-wider text-[#66523B] uppercase font-sans">
+            <span className="text-[10px] font-bold tracking-wider text-[#66523B] uppercase font-sans">
               MARKET HUB
             </span>
           </div>
         </Link>
       </div>
 
-      {/* 2. Nav list: compact 44px items, 4px gap, 12px radius, icon 20px, label 15px */}
-      <nav className="flex-1 px-3 py-3 space-y-1 overflow-hidden">
+      {/* 2. Nav list: compact 34px items, 3px gap, 8px radius, icon 16px, label 13px */}
+      <nav className="flex-1 px-2.5 py-2.5 space-y-0.5 overflow-hidden">
         {NAV_ITEMS.map((item) => {
           const isActive = item.exact
             ? pathname === item.href
@@ -88,7 +90,7 @@ export function Sidebar() {
               key={item.name}
               href={item.href}
               className={cn(
-                'flex items-center gap-3 px-3 rounded-xl text-[15px] font-semibold transition-all duration-150 h-[44px] max-h-[760px]:h-[40px]',
+                'flex items-center gap-2.5 px-2.5 rounded-lg text-[13px] font-semibold transition-all duration-150 h-[34px]',
                 isActive
                   ? 'bg-[#F8C45C] text-[#263D2D] shadow-warm-xs font-bold'
                   : 'text-[#66523B] hover:bg-[#F1E8D8]/70 hover:text-[#2C1E14]'
@@ -96,13 +98,13 @@ export function Sidebar() {
             >
               <Icon
                 className={cn(
-                  'w-5 h-5 shrink-0 transition-colors',
+                  'w-4 h-4 shrink-0 transition-colors',
                   isActive ? 'text-[#263D2D]' : 'text-[#66523B]'
                 )}
               />
               <span className="truncate">{item.name}</span>
               {item.name === 'AI Assistant' && (
-                <span className="ml-auto px-1.5 py-0.5 text-[10px] uppercase font-bold tracking-wide rounded bg-[#315B42] text-white shrink-0">
+                <span className="ml-auto px-1 py-0.2 text-[9px] uppercase font-bold tracking-wide rounded bg-[#315B42] text-white shrink-0">
                   Live
                 </span>
               )}
@@ -111,20 +113,20 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* 3. Pinned Profile / Restaurant Card (Always fully visible, mt-auto) */}
-      <div className="mt-auto px-3 pb-4 pt-2 border-t border-[#E4D7C0]/80 shrink-0">
+      {/* 3. Pinned Profile / Restaurant Card (Compact, mt-auto) */}
+      <div className="mt-auto px-2.5 pb-3 pt-2 border-t border-[#E4D7C0]/80 shrink-0">
         <Link
           href="/app/settings"
-          className="flex items-center gap-3 p-2.5 rounded-xl bg-white border border-[#E4D7C0] hover:border-[#F8C45C] hover:bg-[#FFFDF9] transition-all shadow-warm-xs group"
+          className="flex items-center gap-2 p-2 rounded-lg bg-white border border-[#E4D7C0] hover:border-[#F8C45C] hover:bg-[#FFFDF9] transition-all shadow-warm-xs group"
         >
           <div className="shrink-0">
-            <HeroAvatarIllustration size={36} showOnlineDot={true} />
+            <HeroAvatarIllustration size={28} showOnlineDot={true} />
           </div>
-          <div className="flex flex-col min-w-0 flex-1">
-            <span className="text-xs font-bold text-[#2C1E14] truncate group-hover:text-[#315B42]">
+          <div className="flex flex-col min-w-0 flex-1 leading-tight">
+            <span className="text-[11px] font-bold text-[#2C1E14] truncate group-hover:text-[#315B42]">
               {currentRestaurant?.name || 'Delhi Haveli'}
             </span>
-            <span className="text-[11px] text-[#8A7662] truncate max-h-[760px]:hidden">
+            <span className="text-[10px] text-[#8A7662] truncate">
               {currentRestaurant?.cuisine || 'North Indian'} • Active
             </span>
           </div>

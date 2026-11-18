@@ -16,6 +16,7 @@ import {
   Settings,
   X,
   RefreshCw,
+  Percent,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { HeroAvatarIllustration } from '@/components/illustrations';
@@ -34,6 +35,7 @@ export function MobileNav() {
   ];
 
   const secondaryItems = [
+    { name: 'Profitability', href: '/app/profitability', icon: Percent },
     { name: 'City Prices', href: '/app/city-prices', icon: TrendingDown },
     { name: 'Shopping List', href: '/app/shopping-list', icon: ShoppingBag },
     { name: 'AI Assistant', href: '/app/assistant', icon: Sparkles },

@@ -36,10 +36,10 @@ export function AppShellWrapper({ children }: { children: React.ReactNode }) {
       {/* Desktop Fixed Sidebar */}
       <Sidebar />
 
-      {/* Main Content Area - Full bleed, single window scroll, margin-left 264px on lg */}
-      <div className="lg:ml-[264px] min-h-screen flex flex-col">
+      {/* Main Content Area - Full bleed, single window scroll, margin-left 216px on lg */}
+      <div className="lg:ml-[216px] min-h-screen flex flex-col">
         <TopBar />
-        <main className="flex-1 px-4 sm:px-6 lg:px-8 max-w-[1200px] mx-auto w-full pb-[112px] pt-4 sm:pt-6">
+        <main className="flex-1 px-3 sm:px-5 lg:px-7 max-w-[1240px] mx-auto w-full pb-16 pt-3 sm:pt-4">
           {children}
         </main>
       </div>
@@ -47,20 +47,20 @@ export function AppShellWrapper({ children }: { children: React.ReactNode }) {
       {/* Mobile Bottom Navigation */}
       <MobileNav />
 
-      {/* Floating 56px Round Mascot Button (Desktop bottom-right 24px; Mobile bottom-left above bar) */}
+      {/* Floating Compact Round Mascot Button */}
       {!isAssistantRoute && (
-        <div className="fixed bottom-20 left-4 lg:bottom-6 lg:left-auto lg:right-6 z-40">
+        <div className="fixed bottom-18 left-4 lg:bottom-5 lg:left-auto lg:right-5 z-40">
           <button
             onClick={() => setIsAssistantOpen(!isAssistantOpen)}
-            className="group relative w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-[#263D2D] hover:bg-[#315B42] text-white shadow-warm-xl border-2 border-[#F8C45C] flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95"
+            className="group relative w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#263D2D] hover:bg-[#315B42] text-white shadow-warm-lg border border-[#F8C45C] flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95"
             aria-label="Open Chef Hub AI Kitchen Copilot"
           >
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#FFF9EF] flex items-center justify-center overflow-hidden border border-[#F8C45C]/60">
-              <MascotFace emotion="winking" size={36} />
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#FFF9EF] flex items-center justify-center overflow-hidden border border-[#F8C45C]/60">
+              <MascotFace emotion="winking" size={28} />
             </div>
 
-            {/* Desktop Tooltip: Small "Ask AI" pill on hover instead of wide pill */}
-            <span className="hidden lg:block absolute -top-9 left-1/2 -translate-x-1/2 px-2.5 py-1 bg-[#263D2D] text-white text-[11px] font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-md border border-[#F8C45C]/40">
+            {/* Desktop Tooltip: Small "Ask AI" pill on hover */}
+            <span className="hidden lg:block absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-[#263D2D] text-white text-[10px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-md border border-[#F8C45C]/40">
               Ask AI
             </span>
           </button>
@@ -111,8 +111,8 @@ export function AppShellWrapper({ children }: { children: React.ReactNode }) {
               </div>
 
               {/* Chat Body */}
-              <div className="p-3 bg-[#FFF9EF]/40 flex-1 overflow-y-auto">
-                <AIChatEngine />
+              <div className="p-2 sm:p-3 bg-[#FFF9EF]/40 flex-1 overflow-y-auto">
+                <AIChatEngine isModal={true} />
               </div>
             </motion.div>
           </>

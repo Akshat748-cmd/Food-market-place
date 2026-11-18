@@ -15,7 +15,7 @@ import {
 import { useAppStore } from '@/store/useAppStore';
 import { useHydrated } from '@/lib/useHydration';
 import { formatCurrency } from '@/lib/utils';
-import { HeroAvatarIllustration } from '@/components/illustrations';
+import { MascotFace } from '@/components/illustrations/MascotFace';
 import { Button } from '@/components/ui/Button';
 
 interface Message {
@@ -28,7 +28,17 @@ interface Message {
   followUps?: string[];
 }
 
-export function AIChatEngine({ isModal = false }: { isModal?: boolean }) {
+interface AIChatEngineProps {
+  isModal?: boolean;
+  externalPrompt?: string;
+  onExternalPromptHandled?: () => void;
+}
+
+export function AIChatEngine({
+  isModal = false,
+  externalPrompt,
+  onExternalPromptHandled,
+}: AIChatEngineProps) {
   const router = useRouter();
   const isHydrated = useHydrated();
   const {
@@ -61,11 +71,11 @@ export function AIChatEngine({ isModal = false }: { isModal?: boolean }) {
   ]);
 
   const quickActionChips = [
-    { label: '🧀 Cheapest paneer', prompt: 'Where is the cheapest paneer in my city today?' },
-    { label: '📉 Reduce food cost', prompt: 'How can I reduce my Butter Chicken cost?' },
-    { label: '🥜 Substitute an ingredient', prompt: 'What is a good substitute for cashew in gravy?' },
-    { label: '📋 Make shopping list', prompt: 'Create my Monday morning mandi shopping list' },
-    { label: '⭐ Best supplier for me', prompt: 'Who is the highest rated dairy supplier?' },
+    { label: 'Find cheapest paneer', prompt: 'Where is the cheapest paneer in my city today?' },
+    { label: 'Reduce my food cost', prompt: 'How can I reduce my Butter Chicken cost?' },
+    { label: 'Suggest ingredient alternatives', prompt: 'What is a good substitute for cashew in gravy?' },
+    { label: 'Create weekly shopping list', prompt: 'Create my Monday morning mandi shopping list' },
+    { label: 'Compare suppliers', prompt: 'Who is the highest rated dairy supplier?' },
   ];
 
   const scrollToBottom = () => {
@@ -104,7 +114,9 @@ export function AIChatEngine({ isModal = false }: { isModal?: boolean }) {
         replyText = `Found Grade A+ Fresh Malai Paneer at ₹285/kg from Verka Mandi Dairy Wholesaler in ${currentCity?.name || 'Delhi NCR'}. It's ₹55/kg cheaper than retail!`;
         cardType = 'supplier';
         cardData = {
+          supplierId: 'sup-delhi-02',
           supplierName: 'Verka Mandi Dairy Wholesaler',
+          ingredientId: 'ing-paneer-01',
           item: 'Fresh Malai Paneer',
           price: 285,
           unit: 'kg',
@@ -162,16 +174,23 @@ export function AIChatEngine({ isModal = false }: { isModal?: boolean }) {
     }, 900);
   };
 
+  useEffect(() => {
+    if (externalPrompt) {
+      handleSendMessage(externalPrompt);
+      onExternalPromptHandled?.();
+    }
+  }, [externalPrompt]);
+
   return (
-    <div className={`flex flex-col bg-white rounded-2xl overflow-hidden border border-[#EBE1CF] ${isModal ? 'h-[520px]' : 'h-[640px]'}`}>
+    <div className={`flex flex-col bg-white rounded-2xl overflow-hidden border border-[#EBE1CF] shadow-xs ${isModal ? 'h-[490px]' : 'h-[540px] lg:h-[580px]'}`}>
       {/* Quick Action Chips Bar */}
-      <div className="p-3 bg-cream-50 border-b border-[#E4D7C0] flex gap-2 overflow-x-auto no-scrollbar shrink-0">
+      <div className="p-2.5 px-3 bg-cream-50 border-b border-[#E4D7C0] flex gap-1.5 overflow-x-auto no-scrollbar shrink-0">
         {quickActionChips.map((chip, i) => (
           <button
             key={i}
             type="button"
             onClick={() => handleSendMessage(chip.prompt)}
-            className="px-3 py-1.5 rounded-xl bg-white hover:bg-[#FEF6E4] border border-[#E0D1B8] hover:border-[#F8C45C] text-xs font-semibold text-[#66523B] hover:text-[#2C1E14] transition-all whitespace-nowrap shrink-0 shadow-warm-xs min-h-[36px]"
+            className="px-2.5 py-1 rounded-lg bg-white hover:bg-[#FEF6E4] border border-[#E0D1B8] hover:border-[#F8C45C] text-[11px] font-semibold text-[#66523B] hover:text-[#2C1E14] transition-all whitespace-nowrap shrink-0 shadow-xs min-h-[30px]"
           >
             {chip.label}
           </button>
@@ -187,7 +206,7 @@ export function AIChatEngine({ isModal = false }: { isModal?: boolean }) {
           >
             <div className="flex items-start gap-2.5 max-w-[92%] sm:max-w-[80%]">
               {msg.sender === 'assistant' && (
-                <HeroAvatarIllustration size={34} showOnlineDot={false} className="shrink-0 mt-0.5" />
+                <MascotFace emotion="happy" size={30} className="shrink-0 mt-0.5" />
               )}
 
               <div className="space-y-2">
@@ -234,7 +253,15 @@ export function AIChatEngine({ isModal = false }: { isModal?: boolean }) {
                       >
                         Add 60kg to Shopping List
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => router.push('/app/suppliers')}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const supId = msg.cardData?.supplierId || 'sup-delhi-02';
+                          const ingId = msg.cardData?.ingredientId || 'ing-paneer-01';
+                          router.push(`/app/suppliers?supplierId=${supId}&ingredientId=${ingId}`);
+                        }}
+                      >
                         View Supplier
                       </Button>
                     </div>
@@ -307,7 +334,7 @@ export function AIChatEngine({ isModal = false }: { isModal?: boolean }) {
 
         {isTyping && (
           <div className="flex items-center gap-2 text-xs text-[#8A7662]">
-            <HeroAvatarIllustration size={28} showOnlineDot={false} />
+            <MascotFace emotion="thinking" size={26} />
             <span className="animate-pulse">Copilot is checking mandi benchmarks...</span>
           </div>
         )}

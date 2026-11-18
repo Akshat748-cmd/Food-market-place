@@ -63,92 +63,92 @@ export default function AppHomePage() {
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-16">
+    <div className="space-y-4 max-w-6xl mx-auto pb-12">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-5 right-5 z-50 bg-[#263D2D] text-white px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 border border-[#F8C45C] animate-in fade-in slide-in-from-top-4">
-          <Bell className="w-4 h-4 text-[#F8C45C] shrink-0" />
-          <span className="text-xs font-medium">{toastMessage}</span>
-          <button onClick={() => setToastMessage(null)} className="text-white/60 hover:text-white">
-            <X className="w-3.5 h-3.5" />
+        <div className="fixed top-4 right-4 z-50 bg-[#263D2D] text-white px-3 py-2 rounded-xl shadow-xl flex items-center gap-2.5 border border-[#F8C45C] text-xs">
+          <Bell className="w-3.5 h-3.5 text-[#F8C45C] shrink-0" />
+          <span className="font-medium">{toastMessage}</span>
+          <button onClick={() => setToastMessage(null)} className="text-white/60 hover:text-white ml-1">
+            <X className="w-3 h-3" />
           </button>
         </div>
       )}
 
       {/* Warm Daily Briefing Header */}
-      <div className="bg-[#FFFDF8] border border-[#263D2D]/10 rounded-3xl p-6 sm:p-8 shadow-sm relative overflow-hidden">
+      <div className="bg-[#FFFDF8] border border-[#263D2D]/10 rounded-2xl p-4 sm:p-5 shadow-sm relative overflow-hidden">
         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-[#F8C45C]/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#FFF9EF] border-2 border-[#F8C45C] flex items-center justify-center shadow-inner shrink-0 overflow-hidden">
-              <MascotFace emotion="happy" size={56} />
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative z-10">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-[#FFF9EF] border-2 border-[#F8C45C] flex items-center justify-center shadow-inner shrink-0 overflow-hidden">
+              <MascotFace emotion="happy" size={40} />
             </div>
             <div>
-              <div className="text-xs font-bold uppercase tracking-wider text-[#315B42] flex items-center gap-1.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[#315B42] flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-[#F8C45C]" />
                 Daily Kitchen Intelligence
               </div>
-              <h1 className="text-2xl sm:text-3xl font-fraunces font-bold text-[#263D2D] mt-0.5">
+              <h1 className="text-lg sm:text-xl font-fraunces font-bold text-[#263D2D] mt-0.5">
                 Good morning, Chef Raghav!
               </h1>
-              <p className="text-sm text-[#66523B] mt-1 max-w-xl">
+              <p className="text-xs text-[#66523B] mt-0.5 max-w-xl">
                 We discovered <strong className="text-[#315B42]">₹{totalSavings.toLocaleString('en-IN')}/month</strong> in direct mandi procurement savings across your {currentCity.name} menu.
               </p>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full md:w-auto">
+          <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto shrink-0">
             <Link
               href="/app/savings"
-              className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-[#263D2D] text-white text-xs font-semibold hover:bg-[#315B42] transition-colors flex items-center justify-center gap-2 shadow-md"
+              className="w-full sm:w-auto px-3.5 py-1.5 rounded-lg bg-[#263D2D] text-white text-xs font-semibold hover:bg-[#315B42] transition-colors flex items-center justify-center gap-1.5 shadow-sm"
             >
-              <TrendingDown className="w-4 h-4 text-[#F8C45C]" />
+              <TrendingDown className="w-3.5 h-3.5 text-[#F8C45C]" />
               View Savings Bill
             </Link>
             <Link
               href="/app/assistant"
-              className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-[#F8C45C] text-[#263D2D] text-xs font-bold hover:bg-[#f3b942] transition-colors flex items-center justify-center gap-2 shadow-sm"
+              className="w-full sm:w-auto px-3.5 py-1.5 rounded-lg bg-[#F8C45C] text-[#263D2D] text-xs font-bold hover:bg-[#f3b942] transition-colors flex items-center justify-center gap-1.5 shadow-xs"
             >
-              <Sparkles className="w-4 h-4" />
-              Ask Chef Hub Copilot
+              <Sparkles className="w-3.5 h-3.5" />
+              Ask Copilot
             </Link>
           </div>
         </div>
 
         {/* 3 Action Metric Pill Highlights */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6 pt-6 border-t border-[#263D2D]/10">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-[#263D2D]/10">
           <Link
             href="/app/menu?view=ingredients"
-            className="p-3.5 rounded-2xl bg-[#FFF9EF] border border-[#263D2D]/10 hover:border-[#F8C45C] transition-all group flex items-center justify-between"
+            className="p-2.5 rounded-xl bg-[#FFF9EF] border border-[#263D2D]/10 hover:border-[#F8C45C] transition-all group flex items-center justify-between"
           >
             <div>
-              <div className="text-[11px] text-[#66523B] font-medium">Mapped Ingredients</div>
-              <div className="text-lg font-bold text-[#263D2D] font-mono">{ingredients.length} items</div>
+              <div className="text-[10px] text-[#66523B] font-medium">Mapped Ingredients</div>
+              <div className="text-base font-bold text-[#263D2D] font-mono">{ingredients.length} items</div>
             </div>
-            <ArrowRight className="w-4 h-4 text-[#66523B] group-hover:text-[#263D2D] group-hover:translate-x-0.5 transition-transform" />
+            <ArrowRight className="w-3.5 h-3.5 text-[#66523B] group-hover:text-[#263D2D] group-hover:translate-x-0.5 transition-transform" />
           </Link>
 
           <Link
             href="/app/suppliers"
-            className="p-3.5 rounded-2xl bg-[#FFF9EF] border border-[#263D2D]/10 hover:border-[#F8C45C] transition-all group flex items-center justify-between"
+            className="p-2.5 rounded-xl bg-[#FFF9EF] border border-[#263D2D]/10 hover:border-[#F8C45C] transition-all group flex items-center justify-between"
           >
             <div>
-              <div className="text-[11px] text-[#66523B] font-medium">Active Mandi Suppliers</div>
-              <div className="text-lg font-bold text-[#263D2D] font-mono">12 verified vendors</div>
+              <div className="text-[10px] text-[#66523B] font-medium">Active Mandi Suppliers</div>
+              <div className="text-base font-bold text-[#263D2D] font-mono">12 verified vendors</div>
             </div>
-            <ArrowRight className="w-4 h-4 text-[#66523B] group-hover:text-[#263D2D] group-hover:translate-x-0.5 transition-transform" />
+            <ArrowRight className="w-3.5 h-3.5 text-[#66523B] group-hover:text-[#263D2D] group-hover:translate-x-0.5 transition-transform" />
           </Link>
 
           <Link
             href="/app/shopping-list"
-            className="p-3.5 rounded-2xl bg-[#FFF9EF] border border-[#263D2D]/10 hover:border-[#F8C45C] transition-all group flex items-center justify-between"
+            className="p-2.5 rounded-xl bg-[#FFF9EF] border border-[#263D2D]/10 hover:border-[#F8C45C] transition-all group flex items-center justify-between"
           >
             <div>
-              <div className="text-[11px] text-[#66523B] font-medium">Current Order Slip</div>
-              <div className="text-lg font-bold text-[#263D2D] font-mono">{shoppingList.length} items ready</div>
+              <div className="text-[10px] text-[#66523B] font-medium">Current Order Slip</div>
+              <div className="text-base font-bold text-[#263D2D] font-mono">{shoppingList.length} items ready</div>
             </div>
-            <ArrowRight className="w-4 h-4 text-[#66523B] group-hover:text-[#263D2D] group-hover:translate-x-0.5 transition-transform" />
+            <ArrowRight className="w-3.5 h-3.5 text-[#66523B] group-hover:text-[#263D2D] group-hover:translate-x-0.5 transition-transform" />
           </Link>
         </div>
       </div>

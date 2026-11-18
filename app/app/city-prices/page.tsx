@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MapPin,
@@ -10,307 +9,494 @@ import {
   TrendingUp,
   Store,
   CheckCircle2,
-  AlertTriangle,
   ArrowRight,
   Sparkles,
+  ChevronDown,
+  ChevronUp,
+  ShieldCheck,
+  Compass,
 } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useHydrated } from '@/lib/useHydration';
 import { formatCurrency } from '@/lib/utils';
-import { SectionHeading } from '@/components/ui/SectionHeading';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { CityId } from '@/types';
-
-// Lazy load chart
-const CityComparisonChart = dynamic(() => import('@/components/city/CityComparisonChart'), {
-  ssr: false,
-  loading: () => (
-    <div className="w-full h-72 flex items-center justify-center bg-cream-50 rounded-xl animate-pulse text-xs text-[#8A7662]">
-      Loading City Price Benchmarks...
-    </div>
-  ),
-});
+import { getIngredientIllustration } from '@/lib/ingredientVisuals';
 
 interface CityDetail {
   id: CityId;
   name: string;
+  state: string;
   mandi: string;
-  x: number;
+  mandiTypes: string[];
+  x: number; // Percentage coordinate on India map SVG
   y: number;
-  priceIndexVsNational: number; // e.g. -4.2% vs national
+  priceIndexVsNational: number; // e.g. -4.8% below national avg
   suppliersCount: number;
-  rates: Record<string, number>; // ingredient -> price
+  dailyTurnoverCr: number;
+  rates: {
+    name: string;
+    category: string;
+    price: number;
+    unit: string;
+    trend: number; // e.g. -2.5%
+    nationalAvg: number;
+  }[];
 }
 
-const DETAILED_12_CITIES: CityDetail[] = [
-  { id: 'delhi-ncr', name: 'Delhi NCR', mandi: 'Azadpur APMC & Ghazipur', x: 42, y: 31, priceIndexVsNational: -4.8, suppliersCount: 142, rates: { paneer: 285, chicken: 235, butter: 395, rice: 102, onion: 31, tomato: 28 } },
-  { id: 'mumbai', name: 'Mumbai', mandi: 'Vashi Turbhe APMC', x: 30, y: 58, priceIndexVsNational: -1.2, suppliersCount: 168, rates: { paneer: 295, chicken: 245, butter: 410, rice: 108, onion: 29, tomato: 32 } },
-  { id: 'bengaluru', name: 'Bengaluru', mandi: 'Yeshwanthpur Wholesale', x: 44, y: 78, priceIndexVsNational: -5.4, suppliersCount: 135, rates: { paneer: 310, chicken: 220, butter: 405, rice: 98, onion: 34, tomato: 26 } },
-  { id: 'hyderabad', name: 'Hyderabad', mandi: 'Bowenpally Agri Mandi', x: 48, y: 64, priceIndexVsNational: -3.8, suppliersCount: 112, rates: { paneer: 305, chicken: 230, butter: 412, rice: 100, onion: 32, tomato: 27 } },
-  { id: 'chennai', name: 'Chennai', mandi: 'Koyambedu Wholesale Market', x: 52, y: 82, priceIndexVsNational: +2.1, suppliersCount: 98, rates: { paneer: 320, chicken: 240, butter: 420, rice: 105, onion: 35, tomato: 30 } },
-  { id: 'kolkata', name: 'Kolkata', mandi: 'Posta Bazar & Mechua', x: 78, y: 48, priceIndexVsNational: -3.2, suppliersCount: 104, rates: { paneer: 290, chicken: 225, butter: 400, rice: 95, onion: 33, tomato: 29 } },
-  { id: 'pune', name: 'Pune', mandi: 'Gultekdi Market Yard', x: 33, y: 62, priceIndexVsNational: -4.1, suppliersCount: 88, rates: { paneer: 290, chicken: 235, butter: 402, rice: 104, onion: 27, tomato: 28 } },
-  { id: 'ahmedabad', name: 'Ahmedabad', mandi: 'Jamalpur APMC', x: 28, y: 46, priceIndexVsNational: -6.0, suppliersCount: 82, rates: { paneer: 280, chicken: 250, butter: 390, rice: 99, onion: 28, tomato: 25 } },
-  { id: 'jaipur', name: 'Jaipur', mandi: 'Muhana APMC Mandi', x: 36, y: 38, priceIndexVsNational: -5.1, suppliersCount: 76, rates: { paneer: 282, chicken: 240, butter: 398, rice: 101, onion: 29, tomato: 26 } },
-  { id: 'lucknow', name: 'Lucknow', mandi: 'Dubagga Mandi', x: 54, y: 38, priceIndexVsNational: -4.5, suppliersCount: 72, rates: { paneer: 288, chicken: 232, butter: 405, rice: 96, onion: 30, tomato: 27 } },
-  { id: 'chandigarh', name: 'Chandigarh', mandi: 'Sector 26 Grain & Veg Mandi', x: 40, y: 24, priceIndexVsNational: -3.5, suppliersCount: 65, rates: { paneer: 280, chicken: 238, butter: 392, rice: 98, onion: 32, tomato: 29 } },
-  { id: 'indore', name: 'Indore', mandi: 'Choithram Mandi', x: 38, y: 50, priceIndexVsNational: -5.8, suppliersCount: 59, rates: { paneer: 282, chicken: 242, butter: 395, rice: 97, onion: 26, tomato: 24 } },
+const ALL_12_CITIES: CityDetail[] = [
+  {
+    id: 'delhi-ncr',
+    name: 'Delhi NCR',
+    state: 'Delhi',
+    mandi: 'Azadpur APMC, Ghazipur & Okhla',
+    mandiTypes: ['Asia’s Largest Fruit & Veg APMC', 'Poultry & Meat Terminal'],
+    x: 37,
+    y: 28,
+    priceIndexVsNational: -4.8,
+    suppliersCount: 142,
+    dailyTurnoverCr: 48,
+    rates: [
+      { name: 'Fresh Malai Paneer', category: 'Dairy', price: 285, unit: 'kg', trend: -3.2, nationalAvg: 310 },
+      { name: 'Broiler Chicken (Curry Cut)', category: 'Poultry', price: 215, unit: 'kg', trend: +1.5, nationalAvg: 230 },
+      { name: 'Nashik Red Onions', category: 'Vegetables', price: 28, unit: 'kg', trend: -8.5, nationalAvg: 33 },
+      { name: 'Salad Tomatoes (Hybrid)', category: 'Vegetables', price: 24, unit: 'kg', trend: -12.0, nationalAvg: 29 },
+      { name: 'Premium Basmati Rice (1121)', category: 'Grains', price: 98, unit: 'kg', trend: -1.0, nationalAvg: 104 },
+      { name: 'Pure Desi Ghee (Tin)', category: 'Oils & Ghee', price: 540, unit: 'kg', trend: 0.0, nationalAvg: 565 },
+      { name: 'White Butter (Makhan)', category: 'Dairy', price: 395, unit: 'kg', trend: -2.0, nationalAvg: 415 },
+      { name: 'Kashmiri Red Chilli', category: 'Spices', price: 420, unit: 'kg', trend: +2.5, nationalAvg: 440 },
+    ],
+  },
+  {
+    id: 'mumbai',
+    name: 'Mumbai',
+    state: 'Maharashtra',
+    mandi: 'Vashi Turbhe APMC & Dadar Market',
+    mandiTypes: ['Western India Agri Hub', 'Seafood Wholesale Sassoon Dock'],
+    x: 26,
+    y: 56,
+    priceIndexVsNational: -1.2,
+    suppliersCount: 168,
+    dailyTurnoverCr: 62,
+    rates: [
+      { name: 'Fresh Malai Paneer', category: 'Dairy', price: 295, unit: 'kg', trend: -1.5, nationalAvg: 310 },
+      { name: 'Broiler Chicken (Curry Cut)', category: 'Poultry', price: 235, unit: 'kg', trend: +2.0, nationalAvg: 230 },
+      { name: 'Nashik Red Onions', category: 'Vegetables', price: 26, unit: 'kg', trend: -10.0, nationalAvg: 33 },
+      { name: 'Salad Tomatoes (Hybrid)', category: 'Vegetables', price: 30, unit: 'kg', trend: +4.0, nationalAvg: 29 },
+      { name: 'Premium Basmati Rice (1121)', category: 'Grains', price: 105, unit: 'kg', trend: 0.0, nationalAvg: 104 },
+      { name: 'Pure Desi Ghee (Tin)', category: 'Oils & Ghee', price: 555, unit: 'kg', trend: +1.2, nationalAvg: 565 },
+      { name: 'White Butter (Makhan)', category: 'Dairy', price: 410, unit: 'kg', trend: +0.5, nationalAvg: 415 },
+      { name: 'Kashmiri Red Chilli', category: 'Spices', price: 435, unit: 'kg', trend: -1.0, nationalAvg: 440 },
+    ],
+  },
+  {
+    id: 'bengaluru',
+    name: 'Bengaluru',
+    state: 'Karnataka',
+    mandi: 'Yeshwanthpur Wholesale & Kalasipalya',
+    mandiTypes: ['South India Grain & Pulse Terminal', 'Kolar Tomato Link'],
+    x: 41,
+    y: 77,
+    priceIndexVsNational: -5.4,
+    suppliersCount: 135,
+    dailyTurnoverCr: 39,
+    rates: [
+      { name: 'Fresh Malai Paneer', category: 'Dairy', price: 305, unit: 'kg', trend: 0.0, nationalAvg: 310 },
+      { name: 'Broiler Chicken (Curry Cut)', category: 'Poultry', price: 210, unit: 'kg', trend: -4.0, nationalAvg: 230 },
+      { name: 'Nashik Red Onions', category: 'Vegetables', price: 32, unit: 'kg', trend: -2.0, nationalAvg: 33 },
+      { name: 'Salad Tomatoes (Hybrid)', category: 'Vegetables', price: 22, unit: 'kg', trend: -15.0, nationalAvg: 29 },
+      { name: 'Premium Basmati Rice (1121)', category: 'Grains', price: 96, unit: 'kg', trend: -2.5, nationalAvg: 104 },
+      { name: 'Pure Desi Ghee (Tin)', category: 'Oils & Ghee', price: 545, unit: 'kg', trend: -1.0, nationalAvg: 565 },
+      { name: 'White Butter (Makhan)', category: 'Dairy', price: 405, unit: 'kg', trend: -1.5, nationalAvg: 415 },
+      { name: 'Kashmiri Red Chilli', category: 'Spices', price: 425, unit: 'kg', trend: 0.0, nationalAvg: 440 },
+    ],
+  },
+  {
+    id: 'hyderabad',
+    name: 'Hyderabad',
+    state: 'Telangana',
+    mandi: 'Bowenpally Agri Mandi & Malakpet',
+    mandiTypes: ['Chilli & Rice Heartland', 'Deccan APMC'],
+    x: 44,
+    y: 63,
+    priceIndexVsNational: -3.8,
+    suppliersCount: 112,
+    dailyTurnoverCr: 34,
+    rates: [
+      { name: 'Fresh Malai Paneer', category: 'Dairy', price: 300, unit: 'kg', trend: -1.0, nationalAvg: 310 },
+      { name: 'Broiler Chicken (Curry Cut)', category: 'Poultry', price: 220, unit: 'kg', trend: +1.0, nationalAvg: 230 },
+      { name: 'Nashik Red Onions', category: 'Vegetables', price: 30, unit: 'kg', trend: -4.5, nationalAvg: 33 },
+      { name: 'Salad Tomatoes (Hybrid)', category: 'Vegetables', price: 25, unit: 'kg', trend: -5.0, nationalAvg: 29 },
+      { name: 'Premium Basmati Rice (1121)', category: 'Grains', price: 98, unit: 'kg', trend: -3.0, nationalAvg: 104 },
+      { name: 'Pure Desi Ghee (Tin)', category: 'Oils & Ghee', price: 550, unit: 'kg', trend: 0.0, nationalAvg: 565 },
+      { name: 'White Butter (Makhan)', category: 'Dairy', price: 410, unit: 'kg', trend: 0.0, nationalAvg: 415 },
+      { name: 'Kashmiri Red Chilli', category: 'Spices', price: 395, unit: 'kg', trend: -6.0, nationalAvg: 440 },
+    ],
+  },
+  {
+    id: 'chennai',
+    name: 'Chennai',
+    state: 'Tamil Nadu',
+    mandi: 'Koyambedu Wholesale Market Complex',
+    mandiTypes: ['Asia’s Largest Perishable Goods Market'],
+    x: 48,
+    y: 81,
+    priceIndexVsNational: +2.1,
+    suppliersCount: 98,
+    dailyTurnoverCr: 32,
+    rates: [
+      { name: 'Fresh Malai Paneer', category: 'Dairy', price: 318, unit: 'kg', trend: +1.5, nationalAvg: 310 },
+      { name: 'Broiler Chicken (Curry Cut)', category: 'Poultry', price: 230, unit: 'kg', trend: 0.0, nationalAvg: 230 },
+      { name: 'Nashik Red Onions', category: 'Vegetables', price: 34, unit: 'kg', trend: +2.0, nationalAvg: 33 },
+      { name: 'Salad Tomatoes (Hybrid)', category: 'Vegetables', price: 28, unit: 'kg', trend: -2.0, nationalAvg: 29 },
+      { name: 'Premium Basmati Rice (1121)', category: 'Grains', price: 102, unit: 'kg', trend: -1.0, nationalAvg: 104 },
+      { name: 'Pure Desi Ghee (Tin)', category: 'Oils & Ghee', price: 570, unit: 'kg', trend: +1.5, nationalAvg: 565 },
+      { name: 'White Butter (Makhan)', category: 'Dairy', price: 420, unit: 'kg', trend: +1.0, nationalAvg: 415 },
+      { name: 'Kashmiri Red Chilli', category: 'Spices', price: 445, unit: 'kg', trend: +2.0, nationalAvg: 440 },
+    ],
+  },
+  {
+    id: 'kolkata',
+    name: 'Kolkata',
+    state: 'West Bengal',
+    mandi: 'Posta Bazar, Mechua & Koley Market',
+    mandiTypes: ['Eastern India Trading Gateway', 'Riverine Fish Terminal'],
+    x: 75,
+    y: 47,
+    priceIndexVsNational: -3.2,
+    suppliersCount: 104,
+    dailyTurnoverCr: 36,
+    rates: [
+      { name: 'Fresh Malai Paneer', category: 'Dairy', price: 292, unit: 'kg', trend: -2.0, nationalAvg: 310 },
+      { name: 'Broiler Chicken (Curry Cut)', category: 'Poultry', price: 218, unit: 'kg', trend: -1.5, nationalAvg: 230 },
+      { name: 'Nashik Red Onions', category: 'Vegetables', price: 31, unit: 'kg', trend: -3.0, nationalAvg: 33 },
+      { name: 'Salad Tomatoes (Hybrid)', category: 'Vegetables', price: 27, unit: 'kg', trend: -4.0, nationalAvg: 29 },
+      { name: 'Premium Basmati Rice (1121)', category: 'Grains', price: 95, unit: 'kg', trend: -4.0, nationalAvg: 104 },
+      { name: 'Pure Desi Ghee (Tin)', category: 'Oils & Ghee', price: 550, unit: 'kg', trend: 0.0, nationalAvg: 565 },
+      { name: 'White Butter (Makhan)', category: 'Dairy', price: 400, unit: 'kg', trend: -1.0, nationalAvg: 415 },
+      { name: 'Kashmiri Red Chilli', category: 'Spices', price: 430, unit: 'kg', trend: 0.0, nationalAvg: 440 },
+    ],
+  },
+  {
+    id: 'pune',
+    name: 'Pune',
+    state: 'Maharashtra',
+    mandi: 'Gultekdi Market Yard APMC',
+    mandiTypes: ['Western Ghats Fresh Harvest Terminal'],
+    x: 29,
+    y: 60,
+    priceIndexVsNational: -4.1,
+    suppliersCount: 88,
+    dailyTurnoverCr: 28,
+    rates: [
+      { name: 'Fresh Malai Paneer', category: 'Dairy', price: 288, unit: 'kg', trend: -2.5, nationalAvg: 310 },
+      { name: 'Broiler Chicken (Curry Cut)', category: 'Poultry', price: 228, unit: 'kg', trend: 0.0, nationalAvg: 230 },
+      { name: 'Nashik Red Onions', category: 'Vegetables', price: 25, unit: 'kg', trend: -12.0, nationalAvg: 33 },
+      { name: 'Salad Tomatoes (Hybrid)', category: 'Vegetables', price: 26, unit: 'kg', trend: -6.0, nationalAvg: 29 },
+      { name: 'Premium Basmati Rice (1121)', category: 'Grains', price: 102, unit: 'kg', trend: -1.0, nationalAvg: 104 },
+      { name: 'Pure Desi Ghee (Tin)', category: 'Oils & Ghee', price: 545, unit: 'kg', trend: -1.5, nationalAvg: 565 },
+      { name: 'White Butter (Makhan)', category: 'Dairy', price: 402, unit: 'kg', trend: -2.0, nationalAvg: 415 },
+      { name: 'Kashmiri Red Chilli', category: 'Spices', price: 428, unit: 'kg', trend: -1.0, nationalAvg: 440 },
+    ],
+  },
+  {
+    id: 'ahmedabad',
+    name: 'Ahmedabad',
+    state: 'Gujarat',
+    mandi: 'Jamalpur APMC & Sardar Patel Market',
+    mandiTypes: ['Dairy & Edible Oil Benchmark Mandi'],
+    x: 24,
+    y: 45,
+    priceIndexVsNational: -6.0,
+    suppliersCount: 82,
+    dailyTurnoverCr: 26,
+    rates: [
+      { name: 'Fresh Malai Paneer', category: 'Dairy', price: 278, unit: 'kg', trend: -4.0, nationalAvg: 310 },
+      { name: 'Broiler Chicken (Curry Cut)', category: 'Poultry', price: 240, unit: 'kg', trend: +1.0, nationalAvg: 230 },
+      { name: 'Nashik Red Onions', category: 'Vegetables', price: 27, unit: 'kg', trend: -7.0, nationalAvg: 33 },
+      { name: 'Salad Tomatoes (Hybrid)', category: 'Vegetables', price: 23, unit: 'kg', trend: -10.0, nationalAvg: 29 },
+      { name: 'Premium Basmati Rice (1121)', category: 'Grains', price: 98, unit: 'kg', trend: -2.0, nationalAvg: 104 },
+      { name: 'Pure Desi Ghee (Tin)', category: 'Oils & Ghee', price: 530, unit: 'kg', trend: -3.5, nationalAvg: 565 },
+      { name: 'White Butter (Makhan)', category: 'Dairy', price: 388, unit: 'kg', trend: -3.0, nationalAvg: 415 },
+      { name: 'Kashmiri Red Chilli', category: 'Spices', price: 420, unit: 'kg', trend: -2.0, nationalAvg: 440 },
+    ],
+  },
+  {
+    id: 'jaipur',
+    name: 'Jaipur',
+    state: 'Rajasthan',
+    mandi: 'Muhana Terminal Mandi & Lal Kothi',
+    mandiTypes: ['Mustard Oil & Spice Trading Mandi'],
+    x: 32,
+    y: 36,
+    priceIndexVsNational: -5.1,
+    suppliersCount: 76,
+    dailyTurnoverCr: 24,
+    rates: [
+      { name: 'Fresh Malai Paneer', category: 'Dairy', price: 280, unit: 'kg', trend: -3.5, nationalAvg: 310 },
+      { name: 'Broiler Chicken (Curry Cut)', category: 'Poultry', price: 232, unit: 'kg', trend: 0.0, nationalAvg: 230 },
+      { name: 'Nashik Red Onions', category: 'Vegetables', price: 27, unit: 'kg', trend: -8.0, nationalAvg: 33 },
+      { name: 'Salad Tomatoes (Hybrid)', category: 'Vegetables', price: 24, unit: 'kg', trend: -8.0, nationalAvg: 29 },
+      { name: 'Premium Basmati Rice (1121)', category: 'Grains', price: 99, unit: 'kg', trend: -1.5, nationalAvg: 104 },
+      { name: 'Pure Desi Ghee (Tin)', category: 'Oils & Ghee', price: 535, unit: 'kg', trend: -2.5, nationalAvg: 565 },
+      { name: 'White Butter (Makhan)', category: 'Dairy', price: 395, unit: 'kg', trend: -2.0, nationalAvg: 415 },
+      { name: 'Kashmiri Red Chilli', category: 'Spices', price: 415, unit: 'kg', trend: -4.0, nationalAvg: 440 },
+    ],
+  },
+  {
+    id: 'lucknow',
+    name: 'Lucknow',
+    state: 'Uttar Pradesh',
+    mandi: 'Dubagga Mandi & Naveen Galla Mandi',
+    mandiTypes: ['Awadh Agro Trade Center', 'Northern Grain Mandi'],
+    x: 50,
+    y: 36,
+    priceIndexVsNational: -4.5,
+    suppliersCount: 72,
+    dailyTurnoverCr: 22,
+    rates: [
+      { name: 'Fresh Malai Paneer', category: 'Dairy', price: 285, unit: 'kg', trend: -2.0, nationalAvg: 310 },
+      { name: 'Broiler Chicken (Curry Cut)', category: 'Poultry', price: 225, unit: 'kg', trend: -1.0, nationalAvg: 230 },
+      { name: 'Nashik Red Onions', category: 'Vegetables', price: 29, unit: 'kg', trend: -5.0, nationalAvg: 33 },
+      { name: 'Salad Tomatoes (Hybrid)', category: 'Vegetables', price: 25, unit: 'kg', trend: -7.0, nationalAvg: 29 },
+      { name: 'Premium Basmati Rice (1121)', category: 'Grains', price: 94, unit: 'kg', trend: -4.0, nationalAvg: 104 },
+      { name: 'Pure Desi Ghee (Tin)', category: 'Oils & Ghee', price: 545, unit: 'kg', trend: -1.0, nationalAvg: 565 },
+      { name: 'White Butter (Makhan)', category: 'Dairy', price: 400, unit: 'kg', trend: -1.5, nationalAvg: 415 },
+      { name: 'Kashmiri Red Chilli', category: 'Spices', price: 425, unit: 'kg', trend: 0.0, nationalAvg: 440 },
+    ],
+  },
+  {
+    id: 'chandigarh',
+    name: 'Chandigarh',
+    state: 'Punjab / Haryana',
+    mandi: 'Sector 26 Grain & Veg Wholesale Market',
+    mandiTypes: ['Dairy & Wheat Capital Mandi'],
+    x: 35,
+    y: 22,
+    priceIndexVsNational: -3.5,
+    suppliersCount: 65,
+    dailyTurnoverCr: 19,
+    rates: [
+      { name: 'Fresh Malai Paneer', category: 'Dairy', price: 278, unit: 'kg', trend: -4.5, nationalAvg: 310 },
+      { name: 'Broiler Chicken (Curry Cut)', category: 'Poultry', price: 230, unit: 'kg', trend: 0.0, nationalAvg: 230 },
+      { name: 'Nashik Red Onions', category: 'Vegetables', price: 30, unit: 'kg', trend: -4.0, nationalAvg: 33 },
+      { name: 'Salad Tomatoes (Hybrid)', category: 'Vegetables', price: 26, unit: 'kg', trend: -6.0, nationalAvg: 29 },
+      { name: 'Premium Basmati Rice (1121)', category: 'Grains', price: 95, unit: 'kg', trend: -3.0, nationalAvg: 104 },
+      { name: 'Pure Desi Ghee (Tin)', category: 'Oils & Ghee', price: 535, unit: 'kg', trend: -2.0, nationalAvg: 565 },
+      { name: 'White Butter (Makhan)', category: 'Dairy', price: 390, unit: 'kg', trend: -3.0, nationalAvg: 415 },
+      { name: 'Kashmiri Red Chilli', category: 'Spices', price: 430, unit: 'kg', trend: +1.0, nationalAvg: 440 },
+    ],
+  },
+  {
+    id: 'indore',
+    name: 'Indore',
+    state: 'Madhya Pradesh',
+    mandi: 'Choithram Mandi & Chhavani',
+    mandiTypes: ['Central India Soybean, Wheat & Potato Mandi'],
+    x: 34,
+    y: 48,
+    priceIndexVsNational: -5.8,
+    suppliersCount: 59,
+    dailyTurnoverCr: 21,
+    rates: [
+      { name: 'Fresh Malai Paneer', category: 'Dairy', price: 280, unit: 'kg', trend: -3.0, nationalAvg: 310 },
+      { name: 'Broiler Chicken (Curry Cut)', category: 'Poultry', price: 235, unit: 'kg', trend: +0.5, nationalAvg: 230 },
+      { name: 'Nashik Red Onions', category: 'Vegetables', price: 25, unit: 'kg', trend: -11.0, nationalAvg: 33 },
+      { name: 'Salad Tomatoes (Hybrid)', category: 'Vegetables', price: 22, unit: 'kg', trend: -12.0, nationalAvg: 29 },
+      { name: 'Premium Basmati Rice (1121)', category: 'Grains', price: 96, unit: 'kg', trend: -2.0, nationalAvg: 104 },
+      { name: 'Pure Desi Ghee (Tin)', category: 'Oils & Ghee', price: 540, unit: 'kg', trend: -2.0, nationalAvg: 565 },
+      { name: 'White Butter (Makhan)', category: 'Dairy', price: 392, unit: 'kg', trend: -2.5, nationalAvg: 415 },
+      { name: 'Kashmiri Red Chilli', category: 'Spices', price: 415, unit: 'kg', trend: -3.0, nationalAvg: 440 },
+    ],
+  },
 ];
 
-const COMPARISON_COLORS = ['#315B42', '#F8C45C', '#263D2D', '#D97706'];
-
-export default function CityPricingPage() {
+export default function CityPricesPage() {
   const isHydrated = useHydrated();
-  const { selectedCityId, setCity, getCurrentRestaurant } = useAppStore();
-  const currentRestaurant = isHydrated ? getCurrentRestaurant() : null;
+  const { selectedCityId, setCity } = useAppStore();
 
-  const [compareCities, setCompareCities] = useState<CityId[]>(['delhi-ncr', 'mumbai', 'bengaluru']);
-  const [hoveredCity, setHoveredCity] = useState<CityDetail | null>(null);
+  const [activeCityId, setActiveCityId] = useState<CityId>(
+    isHydrated && selectedCityId ? selectedCityId : 'delhi-ncr'
+  );
 
-  const activeCityDetail =
-    DETAILED_12_CITIES.find((c) => c.id === selectedCityId) || DETAILED_12_CITIES[0];
+  const [showAllCommodities, setShowAllCommodities] = useState(false);
+  const [hoveredCityId, setHoveredCityId] = useState<CityId | null>(null);
 
-  const handleCitySelect = (cId: CityId) => {
-    setCity(cId);
-    if (!compareCities.includes(cId)) {
-      setCompareCities((prev) => [cId, ...prev.slice(0, 3)]);
-    }
+  const activeCity = useMemo(() => {
+    return ALL_12_CITIES.find((c) => c.id === activeCityId) || ALL_12_CITIES[0];
+  }, [activeCityId]);
+
+  const displayedRates = useMemo(() => {
+    if (showAllCommodities) return activeCity.rates;
+    return activeCity.rates.slice(0, 4); // Progressive disclosure
+  }, [activeCity, showAllCommodities]);
+
+  const handleSelectCity = (cityId: CityId) => {
+    setActiveCityId(cityId);
   };
 
-  const handleToggleCompareCity = (cId: CityId) => {
-    if (compareCities.includes(cId)) {
-      if (compareCities.length > 2) {
-        setCompareCities(compareCities.filter((id) => id !== cId));
-      }
-    } else {
-      if (compareCities.length < 4) {
-        setCompareCities([...compareCities, cId]);
-      }
-    }
+  const handleSetActiveKitchenCity = (cityId: CityId) => {
+    setCity(cityId);
   };
-
-  // Top 6 Commodities Comparison Data
-  const comparisonData = useMemo(() => {
-    const commodities = [
-      { key: 'paneer', name: 'Paneer (kg)' },
-      { key: 'chicken', name: 'Chicken (kg)' },
-      { key: 'butter', name: 'Butter (kg)' },
-      { key: 'rice', name: 'Basmati (kg)' },
-      { key: 'onion', name: 'Onion (kg)' },
-      { key: 'tomato', name: 'Tomato (kg)' },
-    ];
-
-    return commodities.map((item) => {
-      const row: any = { ingredient: item.name };
-      compareCities.forEach((cId) => {
-        const city = DETAILED_12_CITIES.find((c) => c.id === cId);
-        if (city) {
-          row[city.name] = city.rates[item.key] || 100;
-        }
-      });
-      return row;
-    });
-  }, [compareCities]);
-
-  const activeCompareCityConfigs = useMemo(() => {
-    return compareCities.map((cId, idx) => {
-      const city = DETAILED_12_CITIES.find((c) => c.id === cId);
-      return {
-        id: cId,
-        name: city?.name || cId,
-        color: COMPARISON_COLORS[idx % COMPARISON_COLORS.length],
-      };
-    });
-  }, [compareCities]);
 
   return (
-    <div className="space-y-8 pb-24">
-      {/* Page Header */}
-      <div className="pb-4 border-b border-[#E4D7C0]">
-        <SectionHeading
-          badge="National APMC Network"
-          title="City Wholesale Price Index"
-          serifAccent="& Mandi Benchmarks"
-          subtitle={`Interactive price mapping across 12 culinary hubs. Active procurement market: ${activeCityDetail.name}.`}
-        />
-      </div>
+    <div className="space-y-4 max-w-7xl mx-auto pb-12">
+      {/* 1. HEADER (Heading & Subtitle) */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#E4D7C0]/70 pb-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-bold font-fraunces text-[#2C1E14] tracking-tight">
+              Explore Wholesale Prices Across India
+            </h1>
+            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#EAF3ED] border border-[#315B42]/20 text-[#315B42] text-[11px] font-semibold">
+              <Compass className="w-3 h-3 text-[#315B42]" /> 12 Major Mandis
+            </span>
+          </div>
+          <p className="text-xs text-[#66523B] mt-0.5 font-normal">
+            Real-time mandi procurement benchmarks and inter-city price differentials across 12 culinary centers.
+          </p>
+        </div>
 
-      {/* Mobile Horizontally Scrolling City Chips */}
-      <div className="lg:hidden flex gap-2 overflow-x-auto pb-3 no-scrollbar snap-x">
-        {DETAILED_12_CITIES.map((city) => (
-          <button
-            key={city.id}
-            type="button"
-            onClick={() => handleCitySelect(city.id)}
-            className={`snap-start shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition-all min-h-[40px] flex items-center gap-1.5 ${
-              selectedCityId === city.id
-                ? 'bg-[#263D2D] text-white shadow-warm-xs'
-                : 'bg-white border border-[#EBE1CF] text-[#66523B]'
-            }`}
-          >
-            <MapPin className="w-3.5 h-3.5" />
-            <span>{city.name}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Interactive India Map & Active City Card */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        {/* Large Illustrated Map Card */}
-        <div className="lg:col-span-7 bg-white border border-[#EBE1CF] rounded-[28px] p-6 sm:p-8 shadow-warm flex flex-col justify-between relative overflow-hidden">
-          <div className="flex items-center justify-between pb-3 border-b border-[#F1E8D8]">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#315B42]">
-                Interactive Geographic Benchmarking
-              </span>
-              <h3 className="text-lg font-bold text-[#2C1E14]">Click any City Pin to Switch Procurement Zone</h3>
-            </div>
-            <span className="text-xs font-semibold text-[#8A7662]">12 Cities Live</span>
+        {/* Active City Pill */}
+        <div className="flex items-center gap-2">
+          <div className="px-3 py-1 rounded-lg bg-white border border-[#E4D7C0] text-xs font-bold text-[#2C1E14] shadow-xs flex items-center gap-1.5 h-8">
+            <MapPin className="w-3.5 h-3.5 text-[#315B42]" />
+            <span>Viewing: {activeCity.name}</span>
           </div>
 
-          <div className="relative w-full max-w-[440px] aspect-[4/5] mx-auto my-4">
-            <svg viewBox="0 0 400 500" className="w-full h-full" fill="none">
+          {selectedCityId !== activeCity.id && (
+            <button
+              type="button"
+              onClick={() => handleSetActiveKitchenCity(activeCity.id)}
+              className="px-3 py-1 rounded-lg bg-[#F8C45C] hover:bg-[#eab348] text-[#263D2D] text-xs font-bold transition-all shadow-xs h-8"
+            >
+              Set as Kitchen City
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 2. MAIN LAYOUT: Interactive India Map (Left) + City Detail Panel (Right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* LEFT COLUMN: INTERACTIVE INDIA MAP (7 Cols) */}
+        <div className="lg:col-span-7 bg-[#FFFDF8] border border-[#E0D1B8] rounded-2xl p-4 sm:p-5 shadow-warm-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between border-b border-[#F1E8D8] pb-3 mb-2">
+            <div>
+              <h2 className="text-sm font-bold font-fraunces text-[#2C1E14]">
+                Interactive Mandi Geospatial Map
+              </h2>
+              <span className="text-[10px] text-[#8A7662]">
+                Click any city pin to view local mandi benchmarks
+              </span>
+            </div>
+
+            {/* Quick City Switcher Dropdown for small screens */}
+            <select
+              value={activeCityId}
+              onChange={(e) => handleSelectCity(e.target.value as CityId)}
+              className="bg-white border border-[#E4D7C0] rounded-lg px-2 py-1 text-xs font-semibold text-[#2C1E14] focus:outline-none"
+            >
+              {ALL_12_CITIES.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.priceIndexVsNational > 0 ? `+${c.priceIndexVsNational}%` : `${c.priceIndexVsNational}%`})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Map Container */}
+          <div className="relative w-full aspect-[4/3] max-h-[440px] bg-[#FFF9EF] rounded-xl border border-[#E4D7C0]/60 overflow-hidden flex items-center justify-center p-2 select-none">
+            {/* SVG India Map Background Graphic */}
+            <svg
+              viewBox="0 0 100 100"
+              className="w-full h-full max-w-[420px] max-h-[420px] stroke-[#D6C5A8] stroke-[0.8] fill-[#F6EEDF]"
+            >
+              {/* Stylized geometric India outline contour */}
               <path
-                d="M165 40L210 50L240 80L230 115L270 140L330 140L360 160L380 200L350 215L310 200L290 230L300 280L270 310L230 360L200 440L180 470L170 440L140 370L110 330L90 260L70 230L90 190L130 180L140 140L130 110L165 40Z"
-                fill="#FFF9EF"
-                stroke="#E0D1B8"
-                strokeWidth="2.5"
-                strokeLinejoin="round"
+                d="M 33 12 
+                   L 42 10 L 46 16 L 40 22 L 44 26 L 52 28 L 60 28 L 72 26 L 78 30 L 82 28 L 92 34 
+                   L 88 42 L 80 44 L 75 48 L 74 54 L 66 58 L 56 68 L 50 82 L 46 94 L 40 86 L 34 76 
+                   L 28 62 L 22 52 L 20 44 L 24 38 L 28 32 L 32 20 Z"
+                className="transition-colors fill-[#F7EFE2] hover:fill-[#F4E9D6]"
               />
+              {/* Gujarat Peninsula */}
               <path
-                d="M70 230L90 260L110 330L140 370L170 440L180 470"
-                stroke="#315B42"
-                strokeWidth="2"
-                strokeDasharray="4 4"
-                strokeOpacity="0.5"
+                d="M 22 45 Q 14 47 16 52 Q 22 56 26 53 Z"
+                className="fill-[#F7EFE2]"
+              />
+              {/* Southern Coastline curves */}
+              <path
+                d="M 34 76 Q 42 88 46 94 Q 50 84 52 76"
+                fill="none"
+                strokeWidth="0.8"
+                strokeDasharray="2,2"
               />
             </svg>
 
-            {/* City Pins */}
-            {DETAILED_12_CITIES.map((city) => {
-              const isSelected = city.id === selectedCityId;
+            {/* City Interactive Pins */}
+            {ALL_12_CITIES.map((c) => {
+              const isSelected = c.id === activeCityId;
+              const isHovered = c.id === hoveredCityId;
+
               return (
-                <button
-                  key={city.id}
-                  type="button"
-                  onClick={() => handleCitySelect(city.id)}
-                  onMouseEnter={() => setHoveredCity(city)}
-                  onMouseLeave={() => setHoveredCity(null)}
-                  style={{ left: `${city.x}%`, top: `${city.y}%` }}
-                  className="absolute -translate-x-1/2 -translate-y-1/2 group focus:outline-none z-20"
+                <div
+                  key={c.id}
+                  style={{ left: `${c.x}%`, top: `${c.y}%` }}
+                  onMouseEnter={() => setHoveredCityId(c.id)}
+                  onMouseLeave={() => setHoveredCityId(null)}
+                  onClick={() => handleSelectCity(c.id)}
+                  className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer z-10 group"
                 >
-                  <div className="relative flex flex-col items-center">
+                  {/* Ping Animation on Selected */}
+                  {isSelected && (
+                    <span className="absolute -inset-1.5 rounded-full bg-[#315B42]/30 animate-ping pointer-events-none" />
+                  )}
+
+                  {/* Pin Circle */}
+                  <div
+                    className={`relative w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center border-2 transition-all ${
+                      isSelected
+                        ? 'bg-[#315B42] border-[#F8C45C] scale-125 shadow-md'
+                        : isHovered
+                        ? 'bg-[#F8C45C] border-[#263D2D] scale-110 shadow-xs'
+                        : 'bg-white border-[#315B42] hover:scale-105'
+                    }`}
+                  >
                     <span
-                      className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${
-                        isSelected
-                          ? 'bg-[#315B42] text-white ring-4 ring-[#F8C45C] scale-110 shadow-warm'
-                          : 'bg-[#F8C45C] text-[#2C1E14] border border-[#E0D1B8] hover:scale-110'
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        isSelected ? 'bg-[#F8C45C]' : 'bg-[#315B42]'
                       }`}
-                    >
-                      <MapPin className="w-3.5 h-3.5" />
-                    </span>
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded shadow-warm-xs mt-1 whitespace-nowrap ${
-                        isSelected
-                          ? 'bg-[#263D2D] text-white'
-                          : 'bg-white text-[#2C1E14] border border-[#EBE1CF]'
-                      }`}
-                    >
-                      {city.name}
-                    </span>
+                    />
                   </div>
-                </button>
+
+                  {/* City Label Badge */}
+                  <div
+                    className={`absolute left-1/2 -translate-x-1/2 -top-5 sm:-top-6 px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold whitespace-nowrap transition-all shadow-xs pointer-events-none ${
+                      isSelected
+                        ? 'bg-[#263D2D] text-white opacity-100 z-20'
+                        : 'bg-white/90 text-[#2C1E14] border border-[#E4D7C0] opacity-80 group-hover:opacity-100'
+                    }`}
+                  >
+                    {c.name}
+                  </div>
+                </div>
               );
             })}
           </div>
 
-          <div className="pt-3 border-t border-[#F1E8D8] flex items-center justify-between text-xs text-[#8A7662]">
-            <span>Selected globally sets city for all ingredient searches & POs</span>
-            <span className="font-bold text-[#315B42]">Active: {activeCityDetail.name}</span>
-          </div>
-        </div>
-
-        {/* Right Active City Overview Card */}
-        <div className="lg:col-span-5 space-y-4">
-          <Card variant="golden" className="p-6 sm:p-7 space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-[#E4D7C0]">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#315B42]">
-                  Active City Market
-                </span>
-                <h3 className="text-2xl font-black text-[#2C1E14]">{activeCityDetail.name}</h3>
-                <p className="text-xs text-[#8A7662] mt-0.5">{activeCityDetail.mandi}</p>
-              </div>
-              <div className="text-right">
-                <span className="text-xs font-bold text-[#315B42] bg-[#EAF3ED] px-2.5 py-1 rounded-full border border-[#C5DEC9]">
-                  {activeCityDetail.priceIndexVsNational < 0 ? '' : '+'}
-                  {activeCityDetail.priceIndexVsNational}% vs Nat. Avg
-                </span>
-              </div>
-            </div>
-
-            {/* Quick Commodity Benchmarks */}
-            <div className="space-y-2.5">
-              <div className="p-3 bg-cream-50 rounded-xl border border-[#EBE1CF] flex justify-between items-center text-xs">
-                <span className="font-bold text-[#2C1E14]">Malai Paneer</span>
-                <span className="font-mono font-bold text-[#315B42]">₹{activeCityDetail.rates.paneer}/kg</span>
-              </div>
-              <div className="p-3 bg-cream-50 rounded-xl border border-[#EBE1CF] flex justify-between items-center text-xs">
-                <span className="font-bold text-[#2C1E14]">Boneless Chicken Breast</span>
-                <span className="font-mono font-bold text-[#315B42]">₹{activeCityDetail.rates.chicken}/kg</span>
-              </div>
-              <div className="p-3 bg-cream-50 rounded-xl border border-[#EBE1CF] flex justify-between items-center text-xs">
-                <span className="font-bold text-[#2C1E14]">White Cooking Butter</span>
-                <span className="font-mono font-bold text-[#315B42]">₹{activeCityDetail.rates.butter}/kg</span>
-              </div>
-              <div className="p-3 bg-cream-50 rounded-xl border border-[#EBE1CF] flex justify-between items-center text-xs">
-                <span className="font-bold text-[#2C1E14]">Aged 1121 Basmati Rice</span>
-                <span className="font-mono font-bold text-[#315B42]">₹{activeCityDetail.rates.rice}/kg</span>
-              </div>
-              <div className="p-3 bg-cream-50 rounded-xl border border-[#EBE1CF] flex justify-between items-center text-xs">
-                <span className="font-bold text-[#2C1E14]">Nashik Red Onions</span>
-                <span className="font-mono font-bold text-[#315B42]">₹{activeCityDetail.rates.onion}/kg</span>
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <Button
-                variant="secondary"
-                size="md"
-                fullWidth
-                onClick={() => (window.location.href = '/app/suppliers')}
-              >
-                Browse {activeCityDetail.suppliersCount} Verified Suppliers in {activeCityDetail.name} &rarr;
-              </Button>
-            </div>
-          </Card>
-        </div>
-      </div>
-
-      {/* Multi-City Comparison Section with Recharts */}
-      <div className="bg-white border border-[#EBE1CF] rounded-[28px] p-6 sm:p-8 shadow-warm space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#F1E8D8]">
-          <div>
-            <h3 className="text-xl font-bold text-[#2C1E14]">Top 6 Commodity Price Comparison</h3>
-            <p className="text-xs text-[#8A7662]">
-              Select 2 to 4 cities to compare spot wholesale mandi prices.
-            </p>
-          </div>
-
-          {/* City selector pills */}
-          <div className="flex flex-wrap gap-2">
-            {DETAILED_12_CITIES.map((c) => {
-              const isSelected = compareCities.includes(c.id);
+          {/* Map Footer: Quick City Tags */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-3 mt-2 border-t border-[#F1E8D8]">
+            {ALL_12_CITIES.map((c) => {
+              const isSelected = c.id === activeCityId;
               return (
                 <button
                   key={c.id}
                   type="button"
-                  onClick={() => handleToggleCompareCity(c.id)}
-                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all min-h-[36px] ${
+                  onClick={() => handleSelectCity(c.id)}
+                  className={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition-all whitespace-nowrap shrink-0 ${
                     isSelected
-                      ? 'bg-[#263D2D] text-white shadow-warm-xs'
-                      : 'bg-cream-50 text-[#66523B] border border-[#E4D7C0]'
+                      ? 'bg-[#263D2D] text-white shadow-xs'
+                      : 'bg-white border border-[#EBE1CF] text-[#66523B] hover:text-[#2C1E14]'
                   }`}
                 >
                   {c.name}
@@ -320,87 +506,139 @@ export default function CityPricingPage() {
           </div>
         </div>
 
-        {/* Grouped Bar Chart Area */}
-        <div className="w-full h-72 sm:h-80 pt-2">
-          <CityComparisonChart data={comparisonData} cities={activeCompareCityConfigs} />
-        </div>
-
-        {/* Cheapest City Highlights Per Ingredient */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-4 border-t border-[#F1E8D8]">
-          {[
-            { name: 'Paneer', cheapest: 'Ahmedabad (₹280)', note: 'Co-op dairy zone' },
-            { name: 'Chicken', cheapest: 'Bengaluru (₹220)', note: 'South poultry belt' },
-            { name: 'Butter', cheapest: 'Ahmedabad (₹390)', note: 'Dairy heartland' },
-            { name: 'Rice', cheapest: 'Kolkata (₹95)', note: 'East paddy belt' },
-            { name: 'Onion', cheapest: 'Indore (₹26)', note: 'Malwa region' },
-            { name: 'Tomato', cheapest: 'Indore (₹24)', note: 'Local polyhouse' },
-          ].map((item, idx) => (
-            <div key={idx} className="p-3 bg-cream-50 rounded-xl border border-[#EBE1CF] text-xs">
-              <span className="text-[10px] text-[#8A7662] uppercase font-bold block">{item.name}</span>
-              <strong className="text-[#315B42] block mt-0.5">{item.cheapest}</strong>
-              <span className="text-[10px] text-[#A48E75]">{item.note}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Outlet-Wise Sourcing Panel */}
-      <div className="bg-white border border-[#EBE1CF] rounded-[28px] p-6 sm:p-8 shadow-warm space-y-5">
-        <div>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#315B42]">
-            Multi-Outlet Arbitrage
-          </span>
-          <h3 className="text-xl font-bold text-[#2C1E14]">Outlet-Wise Procurement Sourcing</h3>
-          <p className="text-xs text-[#8A7662]">
-            Compare wholesale raw cost across {currentRestaurant?.name || 'Dawat-e-Khaas'} locations.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-5 rounded-2xl bg-cream-50 border border-[#EBE1CF] space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-[#66523B]" />
-                <h4 className="font-bold text-sm text-[#2C1E14]">Connaught Place Flagship (Delhi NCR)</h4>
+        {/* RIGHT COLUMN: DEDICATED CITY INFORMATION PANEL (5 Cols) */}
+        <div className="lg:col-span-5 space-y-4">
+          {/* City Headline & Mandi Card */}
+          <div className="bg-white border border-[#E0D1B8] rounded-2xl p-4 sm:p-5 shadow-warm-xs space-y-3">
+            <div className="flex items-start justify-between gap-3 border-b border-[#F1E8D8] pb-3">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-base font-bold font-fraunces text-[#2C1E14]">
+                    {activeCity.name}
+                  </h3>
+                  <span className="text-[10px] text-[#8A7662]">({activeCity.state})</span>
+                </div>
+                <p className="text-xs text-[#315B42] font-semibold mt-0.5">
+                  {activeCity.mandi}
+                </p>
               </div>
-              <span className="text-xs font-bold text-[#315B42] bg-[#EAF3ED] px-2 py-0.5 rounded">
-                Optimal
-              </span>
+
+              {/* Price Index comparison badge */}
+              <div
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold shrink-0 ${
+                  activeCity.priceIndexVsNational < 0
+                    ? 'bg-[#EAF3ED] text-[#166534] border border-[#BBF7D0]'
+                    : 'bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A]'
+                }`}
+              >
+                {activeCity.priceIndexVsNational < 0 ? (
+                  <span className="flex items-center gap-1">
+                    <TrendingDown className="w-3.5 h-3.5" />
+                    {Math.abs(activeCity.priceIndexVsNational)}% vs National
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1">
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    +{activeCity.priceIndexVsNational}% vs National
+                  </span>
+                )}
+              </div>
             </div>
-            <p className="text-xs text-[#8A7662]">
-              Sourcing directly from Azadpur APMC and Ghazipur Mandi. Average monthly procurement: ₹9,80,000.
-            </p>
-            <div className="p-2.5 bg-white rounded-xl border border-[#E4D7C0] text-xs flex justify-between">
-              <span>Monthly Savings Achieved</span>
-              <strong className="text-[#315B42]">₹62,500/month</strong>
+
+            {/* Quick Mandi Metrics */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-2.5 rounded-xl bg-[#FFF9EF] border border-[#E4D7C0]">
+                <span className="text-[10px] text-[#8A7662] block">Verified Mandi Suppliers</span>
+                <span className="font-mono font-bold text-sm text-[#2C1E14]">
+                  {activeCity.suppliersCount} active vendors
+                </span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-[#FFF9EF] border border-[#E4D7C0]">
+                <span className="text-[10px] text-[#8A7662] block">Daily Wholesale Volume</span>
+                <span className="font-mono font-bold text-sm text-[#315B42]">
+                  ~₹{activeCity.dailyTurnoverCr} Cr / day
+                </span>
+              </div>
+            </div>
+
+            {/* Mandi Specialties */}
+            <div className="space-y-1">
+              <span className="text-[10px] uppercase font-bold text-[#8A7662] block">
+                Mandi Hub Specialization
+              </span>
+              <div className="flex flex-wrap gap-1">
+                {activeCity.mandiTypes.map((t, idx) => (
+                  <span
+                    key={idx}
+                    className="text-[10px] font-medium bg-[#F1E8D8] text-[#66523B] px-2 py-0.5 rounded-md"
+                  >
+                    {t}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
 
-          <div className="p-5 rounded-2xl bg-cream-50 border border-[#EBE1CF] space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-[#66523B]" />
-                <h4 className="font-bold text-sm text-[#2C1E14]">Cyber Hub Outlet (Gurugram)</h4>
+          {/* Commodity Prices List (Progressive Disclosure) */}
+          <div className="bg-white border border-[#E0D1B8] rounded-2xl p-4 sm:p-5 shadow-warm-xs space-y-3">
+            <div className="flex items-center justify-between border-b border-[#F1E8D8] pb-2">
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#2C1E14]">
+                  Mandi Benchmark Rates
+                </h4>
+                <span className="text-[10px] text-[#8A7662]">Live spot procurement rates</span>
               </div>
-              <span className="text-xs font-bold text-[#D97706] bg-[#FEF3C7] px-2 py-0.5 rounded">
-                +4.2% Variance
-              </span>
+              <span className="text-[10px] text-[#315B42] font-semibold">7-Day Trend</span>
             </div>
-            <p className="text-xs text-[#8A7662]">
-              Currently using local Haryana retail distributor for dairy fats (+₹22/kg over Delhi mandi rate).
-            </p>
-            <div className="p-2.5 bg-white rounded-xl border border-[#E4D7C0] text-xs flex justify-between">
-              <span>Potential Additional Savings</span>
-              <strong className="text-[#D97706]">₹18,400/month</strong>
-            </div>
-          </div>
-        </div>
 
-        <div className="p-3 rounded-xl bg-[#FEF6E4] border border-[#F8C45C]/60 flex items-center gap-2.5 text-xs text-[#8C5D08]">
-          <Sparkles className="w-4 h-4 shrink-0 text-[#8C5D08]" />
-          <span>
-            <strong>Hub Tip:</strong> Sourcing Cyber Hub through our pooled Delhi cold chain truck saves an additional ₹18,400/month in distributor markups.
-          </span>
+            {/* Rate Rows */}
+            <div className="divide-y divide-[#F1E8D8] text-xs">
+              {displayedRates.map((r, i) => (
+                <div key={i} className="py-2.5 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-7 h-7 rounded-lg bg-[#FFF9EF] border border-[#E4D7C0] flex items-center justify-center shrink-0">
+                      {getIngredientIllustration(r.name, r.category, 18)}
+                    </div>
+                    <div className="min-w-0">
+                      <span className="font-bold text-[#2C1E14] block truncate">
+                        {r.name}
+                      </span>
+                      <span className="text-[10px] text-[#8A7662]">
+                        Nat. Avg: ₹{r.nationalAvg}/{r.unit}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <span className="font-mono font-bold text-sm text-[#315B42] block">
+                      ₹{r.price}/{r.unit}
+                    </span>
+                    <span
+                      className={`text-[10px] font-bold ${
+                        r.trend < 0 ? 'text-[#166534]' : 'text-[#C2410C]'
+                      }`}
+                    >
+                      {r.trend < 0 ? `${r.trend}%` : `+${r.trend}%`}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Progressive Disclosure Toggle */}
+            <button
+              type="button"
+              onClick={() => setShowAllCommodities(!showAllCommodities)}
+              className="w-full py-1.5 rounded-lg border border-[#E4D7C0] hover:bg-[#FFF9EF] text-xs font-semibold text-[#2C1E14] flex items-center justify-center gap-1 transition-colors"
+            >
+              <span>{showAllCommodities ? 'Show Key Commodities' : 'View All Commodities'}</span>
+              {showAllCommodities ? (
+                <ChevronUp className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5" />
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
