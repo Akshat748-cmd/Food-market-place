@@ -49,7 +49,7 @@ export function SavingsSection() {
   }, []);
 
   return (
-    <section className="py-16 md:py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+    <section className="py-16 md:py-24 px-4 sm:px-8 lg:px-12 xl:px-16 w-full max-w-[1560px] mx-auto">
       <SectionHeading
         badge="Direct Bottom-Line ROI"
         title="Predictable kitchen profits"

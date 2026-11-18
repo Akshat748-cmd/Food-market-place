@@ -114,6 +114,8 @@ interface AppState {
   toggleAssistant: () => void;
   setAssistantOpen: (open: boolean) => void;
   markAlertRead: (id: string) => void;
+  dismissAlert: (id: string) => void;
+  clearAllAlerts: () => void;
   addAlert: (alert: Omit<Alert, 'id' | 'date' | 'read'>) => void;
   toggleShoppingItem: (id: string) => void;
   updateShoppingItemQuantity: (id: string, qty: number) => void;
@@ -348,6 +350,14 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           alerts: state.alerts.map((a) => (a.id === id ? { ...a, read: true } : a)),
         })),
+
+      dismissAlert: (id: string) =>
+        set((state) => ({
+          alerts: state.alerts.filter((a) => a.id !== id),
+        })),
+
+      clearAllAlerts: () =>
+        set({ alerts: [] }),
 
       addAlert: (alert) =>
         set((state) => ({

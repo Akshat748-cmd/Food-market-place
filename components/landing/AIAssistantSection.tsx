@@ -59,7 +59,7 @@ export function AIAssistantSection() {
   }, [activePreset]);
 
   return (
-    <section className="py-16 md:py-24 bg-[#FFF9EF] px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+    <section className="py-16 md:py-24 bg-[#FFF9EF] px-4 sm:px-8 lg:px-12 xl:px-16 w-full max-w-[1560px] mx-auto">
       <SectionHeading
         badge="Culinary Intelligence Agent"
         title="Meet your 24/7 AI Kitchen Copilot"

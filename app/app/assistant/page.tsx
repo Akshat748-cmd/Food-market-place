@@ -40,7 +40,7 @@ export default function AssistantPage() {
   ];
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto pb-16">
+    <div className="space-y-4 w-full max-w-[1600px] mx-auto pb-16">
       {/* 1. HEADER (Styled exactly like Screenshot 3) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E4D7C0]/70 pb-3">
         <div>

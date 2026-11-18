@@ -66,7 +66,7 @@ export function PricingSection() {
 
   return (
     <section id="pricing" className="py-16 md:py-24 bg-[#F8F3EA]/70 border-y border-[#EBE1CF] scroll-mt-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-[1560px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
         <SectionHeading
           badge="Simple Transparent Pricing"
           title="Invest less than your savings on"

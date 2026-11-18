@@ -340,7 +340,7 @@ export default function CityPricesPage() {
   };
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto pb-12">
+    <div className="space-y-4 w-full max-w-[1600px] mx-auto pb-12">
       {/* 1. HEADER (Heading & Subtitle) */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#E4D7C0]/70 pb-3">
         <div>

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { MapPin, Building2, Bell, ChevronDown, Check, LogOut, Settings, User, Sparkles } from 'lucide-react';
+import { MapPin, Building2, Bell, ChevronDown, Check, LogOut, Settings, User, Sparkles, X } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useHydrated } from '@/lib/useHydration';
 import { CityId } from '@/types';
@@ -35,6 +35,8 @@ export function TopBar() {
     selectedRestaurantId,
     alerts,
     markAlertRead,
+    dismissAlert,
+    clearAllAlerts,
     currentUser,
     isAuthenticated,
     logout,
@@ -103,30 +105,96 @@ export function TopBar() {
 
           {/* Alerts Dropdown Modal */}
           {alertsOpen && (
-            <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white border border-[#E4D7C0] rounded-xl shadow-warm-xl p-3 z-50 text-left">
-              <div className="flex items-center justify-between pb-2 border-b border-[#F1E8D8] mb-2">
-                <span className="font-bold text-xs text-[#2C1E14]">Kitchen Mandi Alerts</span>
-                <span className="text-[10px] text-[#8A7662]">{unreadAlerts} unread</span>
-              </div>
-              <div className="space-y-1.5 max-h-60 overflow-y-auto">
-                {alerts.slice(0, 5).map((a) => (
-                  <div
-                    key={a.id}
-                    onClick={() => markAlertRead(a.id)}
-                    className={`p-2 rounded-lg border text-[11px] cursor-pointer transition-colors ${
-                      a.read
-                        ? 'bg-white border-[#F1E8D8] text-[#8A7662]'
-                        : 'bg-[#FFF9EF] border-[#F8C45C]/60 text-[#2C1E14]'
-                    }`}
+            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white border border-[#E4D7C0] rounded-2xl shadow-warm-xl p-3.5 z-50 text-left animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-center justify-between pb-2.5 border-b border-[#F1E8D8] mb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-xs sm:text-sm text-[#2C1E14]">Kitchen Mandi Alerts</span>
+                  {unreadAlerts > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full bg-[#FEF3C7] text-[#92400E] font-bold text-[10px]">
+                      {unreadAlerts} new
+                    </span>
+                  )}
+                </div>
+                {alerts.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => clearAllAlerts()}
+                    className="text-[11px] font-semibold text-[#8A7662] hover:text-[#C2410C] transition-colors"
                   >
-                    <div className="font-bold flex items-center justify-between">
-                      <span>{a.title}</span>
-                      {!a.read && <span className="w-1.5 h-1.5 rounded-full bg-[#C2410C]" />}
-                    </div>
-                    <div className="text-[10px] text-[#66523B] mt-0.5">{a.message}</div>
-                  </div>
-                ))}
+                    Clear All
+                  </button>
+                )}
               </div>
+
+              {alerts.length === 0 ? (
+                <div className="py-6 text-center text-xs text-[#8A7662]">
+                  <p className="font-semibold text-[#2C1E14]">All caught up!</p>
+                  <p className="text-[11px] mt-0.5">No pending kitchen mandi alerts right now.</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-72 overflow-y-auto no-scrollbar">
+                  {alerts.map((a) => {
+                    const targetHref =
+                      a.actionHref ||
+                      (a.title.toLowerCase().includes('paneer')
+                        ? '/app/suppliers?search=Paneer'
+                        : a.title.toLowerCase().includes('tomato')
+                        ? '/app/city-prices'
+                        : '/app/suppliers');
+
+                    return (
+                      <div
+                        key={a.id}
+                        onClick={() => {
+                          markAlertRead(a.id);
+                          setAlertsOpen(false);
+                          router.push(targetHref);
+                        }}
+                        className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all hover:shadow-xs group relative ${
+                          a.read
+                            ? 'bg-white border-[#F1E8D8] text-[#8A7662]'
+                            : 'bg-[#FFF9EF] border-[#F8C45C]/70 text-[#2C1E14] hover:border-[#315B42]'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                            {!a.read && (
+                              <span className="w-2 h-2 rounded-full bg-[#C2410C] shrink-0 animate-pulse" />
+                            )}
+                            <span className="font-bold text-[12px] text-[#2C1E14] group-hover:text-[#315B42] transition-colors">
+                              {a.title}
+                            </span>
+                          </div>
+
+                          {/* Cancel / Dismiss Button */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              dismissAlert(a.id);
+                            }}
+                            className="w-5 h-5 rounded-full hover:bg-[#FEE2E2] text-[#8A7662] hover:text-[#C2410C] flex items-center justify-center shrink-0 transition-colors"
+                            title="Dismiss notification"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+
+                        <p className="text-[11px] text-[#66523B] mt-1 leading-relaxed">
+                          {a.message}
+                        </p>
+
+                        <div className="mt-2 flex items-center justify-between text-[10px]">
+                          <span className="text-[#8A7662] font-mono">{a.date}</span>
+                          <span className="inline-flex items-center gap-1 font-bold text-[#315B42] group-hover:underline">
+                            {a.actionLabel || 'View Details'} &rarr;
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>

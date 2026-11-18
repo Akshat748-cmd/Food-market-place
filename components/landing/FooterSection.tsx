@@ -9,7 +9,7 @@ export function FooterSection() {
 
   return (
     <footer className="bg-[#1C2E22] text-white border-t border-[#315B42]/50 pt-16 md:pt-20 pb-12 px-4 sm:px-6 lg:px-8 overflow-hidden relative">
-      <div className="max-w-7xl mx-auto">
+      <div className="w-full max-w-[1560px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
         {/* Large Line-Art Market Stall Illustration & Newsletter Callout */}
         <div className="bg-[#263D2D] border border-white/10 rounded-[32px] p-8 sm:p-12 mb-16 relative overflow-hidden flex flex-col lg:flex-row items-center justify-between gap-10">
           {/* Market Stall Line Art SVG */}

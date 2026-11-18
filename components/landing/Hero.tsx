@@ -20,7 +20,7 @@ export function Hero() {
       />
 
       {/* ================= LOCKED APPROVED TOP NAV ================= */}
-      <header className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 md:py-6 flex items-center justify-between">
+      <header className="w-full max-w-[1560px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 py-5 md:py-6 flex items-center justify-between">
         {/* Left: Brand Logo */}
         <Link href="/" className="flex items-center gap-2.5 group">
           {/* Logo Chef Hat Icon */}
@@ -166,14 +166,14 @@ export function Hero() {
       )}
 
       {/* ================= LOCKED APPROVED HERO MAIN CONTENT ================= */}
-      <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-12 md:pt-6 md:pb-16 text-center flex-1 flex flex-col items-center justify-start">
+      <main className="w-full max-w-[1560px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 pt-4 pb-12 md:pt-6 md:pb-16 text-center flex-1 flex flex-col items-center justify-start">
         {/* Headline */}
-        <h1 className="text-[34px] sm:text-[46px] md:text-[58px] lg:text-[66px] font-black tracking-[-0.03em] leading-[1.1] text-[#2C1E14] font-sans max-w-4xl mx-auto">
+        <h1 className="text-[34px] sm:text-[46px] md:text-[58px] lg:text-[66px] font-black tracking-[-0.03em] leading-[1.1] text-[#2C1E14] font-sans max-w-4xl xl:max-w-5xl mx-auto">
           Because your <span className="text-[#F8C45C]">cost matters.</span>
         </h1>
 
         {/* Subtext */}
-        <p className="mt-4 sm:mt-5 text-[15px] sm:text-[17px] md:text-[18px] text-[#66523B] max-w-2xl mx-auto leading-relaxed font-normal">
+        <p className="mt-4 sm:mt-5 text-[15px] sm:text-[17px] md:text-[18px] text-[#66523B] max-w-2xl xl:max-w-3xl mx-auto leading-relaxed font-normal">
           Food Market Hub helps F&B businesses to improve profits by over 12% with smart ordering and cost-management data.
         </p>
 
@@ -203,10 +203,10 @@ export function Hero() {
         </div>
 
         {/* Staggered Trio of Rounded Photos */}
-        <div className="mt-10 sm:mt-14 w-full max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-12 gap-5 sm:gap-6 items-end">
+        <div className="mt-10 sm:mt-14 w-full max-w-5xl xl:max-w-6xl 2xl:max-w-[1400px] mx-auto grid grid-cols-1 sm:grid-cols-12 gap-5 sm:gap-6 lg:gap-8 items-end">
           {/* Photo 1: Lower-Left, Barista with beanie & glasses */}
           <div className="sm:col-span-3 sm:pb-4 flex justify-center sm:justify-start">
-            <div className="relative w-full max-w-[240px] sm:max-w-none h-[220px] sm:h-[240px] md:h-[270px] rounded-[24px] sm:rounded-[28px] overflow-hidden shadow-warm-md border border-[#EBE1CF]/60">
+            <div className="relative w-full max-w-[240px] sm:max-w-none h-[220px] sm:h-[250px] md:h-[280px] lg:h-[320px] xl:h-[350px] rounded-[24px] sm:rounded-[28px] overflow-hidden shadow-warm-md border border-[#EBE1CF]/60">
               <Image
                 src="https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&w=600&q=80"
                 alt="Smiling barista preparing coffee"
@@ -220,7 +220,7 @@ export function Hero() {
 
           {/* Photo 2: Tall Center, Female Chef dusting flour / smiling */}
           <div className="sm:col-span-5 flex justify-center">
-            <div className="relative w-full max-w-[320px] sm:max-w-none h-[300px] sm:h-[380px] md:h-[440px] rounded-[28px] sm:rounded-[36px] overflow-hidden shadow-warm-lg border border-[#EBE1CF]/60">
+            <div className="relative w-full max-w-[320px] sm:max-w-none h-[300px] sm:h-[380px] md:h-[440px] lg:h-[490px] xl:h-[540px] rounded-[28px] sm:rounded-[36px] overflow-hidden shadow-warm-lg border border-[#EBE1CF]/60">
               <Image
                 src="https://images.unsplash.com/photo-1581299894007-aaa50297cf16?auto=format&fit=crop&w=800&q=80"
                 alt="Female chef smiling in professional kitchen"
@@ -234,7 +234,7 @@ export function Hero() {
 
           {/* Photo 3: Medium Upper-Right, Chef cooking with flames */}
           <div className="sm:col-span-4 sm:pb-12 flex justify-center sm:justify-end">
-            <div className="relative w-full max-w-[260px] sm:max-w-none h-[220px] sm:h-[260px] md:h-[290px] rounded-[24px] sm:rounded-[28px] overflow-hidden shadow-warm-md border border-[#EBE1CF]/60">
+            <div className="relative w-full max-w-[260px] sm:max-w-none h-[220px] sm:h-[260px] md:h-[300px] lg:h-[340px] xl:h-[370px] rounded-[24px] sm:rounded-[28px] overflow-hidden shadow-warm-md border border-[#EBE1CF]/60">
               <Image
                 src="https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=600&q=80"
                 alt="Chef preparing dish with flames in kitchen"

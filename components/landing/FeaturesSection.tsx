@@ -21,7 +21,7 @@ import {
 
 export function FeaturesSection() {
   return (
-    <section id="features" className="py-16 md:py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto scroll-mt-20">
+    <section id="features" className="py-16 md:py-24 px-4 sm:px-8 lg:px-12 xl:px-16 w-full max-w-[1560px] mx-auto scroll-mt-20">
       <SectionHeading
         badge="Intelligent Procurement Hub"
         title="Everything your kitchen needs"

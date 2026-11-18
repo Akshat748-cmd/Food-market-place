@@ -281,7 +281,7 @@ export default function SuppliersPage() {
   };
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto pb-12">
+    <div className="space-y-4 w-full max-w-[1600px] mx-auto pb-12">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-4 right-4 z-50 bg-[#263D2D] text-white px-3.5 py-2 rounded-xl shadow-xl flex items-center gap-2.5 border border-[#F8C45C] text-xs">

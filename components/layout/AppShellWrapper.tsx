@@ -55,7 +55,7 @@ export function AppShellWrapper({ children }: { children: React.ReactNode }) {
       {/* Main Content Area - Full bleed, single window scroll, margin-left 216px on lg */}
       <div className="lg:ml-[216px] min-h-screen flex flex-col">
         <TopBar />
-        <main className="flex-1 px-3 sm:px-5 lg:px-7 max-w-[1240px] mx-auto w-full pb-16 pt-3 sm:pt-4">
+        <main className="flex-1 px-3 sm:px-6 lg:px-8 xl:px-10 max-w-[1600px] mx-auto w-full pb-16 pt-3 sm:pt-4">
           {children}
         </main>
       </div>
